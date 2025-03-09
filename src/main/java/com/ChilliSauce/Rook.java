@@ -1,12 +1,15 @@
 package com.ChilliSauce;
 
 public class Rook extends Piece {
+    private boolean hasMoved;
     public Rook(String color) {
-        super(color);
+        super(color, color.equals("white") ? "wr.png" : "br.png");
+    }
+    public boolean hasMoved() {
+        return hasMoved;
     }
 
-    @Override
-    public String getSymbol() {
-        return color.equals("white") ? "♖" : "♜";
+    public void setHasMoved(boolean hasMoved) {
+        this.hasMoved = hasMoved;
     }
 }
