@@ -5,6 +5,7 @@ import java.util.List;
 
 public class Board {
     private final int[] board;
+    private boolean isWhiteTurn = true;  // ✅ Track current turn
     final String startFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
     public Board() {
@@ -36,14 +37,13 @@ public class Board {
                     };
 
                     int index = getIndex((char) ('a' + fileIndex), rank);
-                    setPiece(index, piece | color); // ✅ FIXED: Pass only 2 arguments
+                    setPiece(index, piece | color);
 
                     fileIndex++;
                 }
             }
         }
     }
-
 
     public int getPiece(int index) {
         if (index < 0 || index >= 64) return PieceConstants.NONE;
@@ -59,19 +59,60 @@ public class Board {
         int piece = getPiece(index);
         if (piece == PieceConstants.NONE) return new ArrayList<>();
 
-        boolean isWhite = (piece & PieceConstants.WHITE) != 0;
+        boolean isWhitePiece = (piece & PieceConstants.WHITE) != 0;
+
+        // ✅ Ensure correct player moves
+        if (isWhitePiece != isWhiteTurn) {
+            System.out.println("❌ Not your turn! It's " + (isWhiteTurn ? "White's" : "Black's") + " turn.");
+            return new ArrayList<>();
+        }
+
         List<Integer> validMoves = new ArrayList<>();
 
         switch (piece & 7) { // Mask to get piece type
-            case PieceConstants.PAWN -> validMoves = ValidPawnMoves.getValidMoves(this, index, isWhite);
-            case PieceConstants.KNIGHT -> validMoves = ValidKnightMoves.getValidMoves(this, index, isWhite);
-            case PieceConstants.BISHOP -> validMoves = ValidBishopMoves.getValidMoves(this, index, isWhite);
-            case PieceConstants.ROOK -> validMoves = ValidRookMoves.getValidMoves(this, index, isWhite);
-            case PieceConstants.QUEEN -> validMoves = ValidQueenMoves.getValidMoves(this, index, isWhite);
-            case PieceConstants.KING -> validMoves = ValidKingMoves.getValidMoves(this, index, isWhite);
+            case PieceConstants.PAWN -> validMoves = ValidPawnMoves.getValidMoves(this, index, isWhitePiece);
+            case PieceConstants.KNIGHT -> validMoves = ValidKnightMoves.getValidMoves(this, index, isWhitePiece);
+            case PieceConstants.BISHOP -> validMoves = ValidBishopMoves.getValidMoves(this, index, isWhitePiece);
+            case PieceConstants.ROOK -> validMoves = ValidRookMoves.getValidMoves(this, index, isWhitePiece);
+            case PieceConstants.QUEEN -> validMoves = ValidQueenMoves.getValidMoves(this, index, isWhitePiece);
+            case PieceConstants.KING -> validMoves = ValidKingMoves.getValidMoves(this, index, isWhitePiece);
         }
 
         return validMoves;
+    }
+
+    public boolean makeMove(int fromIndex, int toIndex) {
+        int piece = getPiece(fromIndex);
+        if (piece == PieceConstants.NONE) return false;
+
+        List<Integer> validMoves = getValidMoves(fromIndex);
+        if (!validMoves.contains(toIndex)) {
+            System.out.println("❌ Invalid move!");
+            return false;
+        }
+
+        int targetPiece = getPiece(toIndex);
+        boolean isCapture = targetPiece != PieceConstants.NONE;
+
+        setPiece(toIndex, piece);
+        setPiece(fromIndex, PieceConstants.NONE);
+
+        // ✅ Play sound based on move type
+        if (isCapture) {
+            SoundManager.playCaptureSound();
+        } else {
+            SoundManager.playMoveSound();
+        }
+
+        // ✅ Switch turn after a valid move
+        isWhiteTurn = !isWhiteTurn;
+        System.out.println("✅ Turn switched to: " + (isWhiteTurn ? "White" : "Black"));
+
+        return true;
+    }
+
+    public boolean isWhiteTurn() {
+        return isWhiteTurn;
     }
 
     private int getIndex(char file, int rank) {

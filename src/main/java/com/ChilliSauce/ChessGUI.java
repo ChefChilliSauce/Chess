@@ -79,46 +79,23 @@ public class ChessGUI extends JFrame {
 
                 System.out.println("Target index: " + targetIndex);
 
-                int piece = board.getPiece(selectedPieceIndex);
-                if (piece == PieceConstants.NONE) return;
+                // ✅ Let Board handle move logic
+                boolean moveSuccessful = board.makeMove(selectedPieceIndex, targetIndex);
 
-                int targetPiece = board.getPiece(targetIndex); // Check if there's a piece at the destination
-
-                if (validMoves.contains(targetIndex)) {
-                    board.setPiece(targetIndex, piece);
-                    board.setPiece(selectedPieceIndex, PieceConstants.NONE);
-
+                if (moveSuccessful) {
                     fromIndex = selectedPieceIndex;
                     toIndex = targetIndex;
                     System.out.println("Move registered: " + fromIndex + " -> " + toIndex);
-
-                    // 🎵 **Play sound based on move type**
-                    if (targetPiece != PieceConstants.NONE) {
-                        SoundManager.playCaptureSound();  // Capture sound
-                    } else {
-                        SoundManager.playMoveSound();  // Normal move sound
-                    }
                 } else {
-                    System.out.println("❌ Invalid move!");
+                    System.out.println("❌ Invalid move! Check turn and rules.");
                 }
 
-                validMoves.clear(); // Clear highlights after the move
+                validMoves.clear();
                 selectedPieceIndex = -1;
                 dragging = false;
                 panel.repaint();
             }
 
-        });
-
-        panel.addMouseMotionListener(new MouseAdapter() {
-            @Override
-            public void mouseDragged(MouseEvent e) {
-                if (dragging) {
-                    draggedX = e.getX();
-                    draggedY = e.getY();
-                    panel.repaint();
-                }
-            }
         });
 
         moveTableModel = new DefaultTableModel(new String[]{"Move No.", "White", "Black"}, 0);
