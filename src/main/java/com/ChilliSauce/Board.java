@@ -83,7 +83,7 @@ public class Board {
 
     public boolean makeMove(int fromIndex, int toIndex) {
         int piece = getPiece(fromIndex);
-        if (piece == PieceConstants.NONE) return false;
+        if (piece == PieceConstants.NONE) return false; // No piece to move
 
         List<Integer> validMoves = getValidMoves(fromIndex);
         if (!validMoves.contains(toIndex)) {
@@ -95,21 +95,30 @@ public class Board {
         boolean isCapture = targetPiece != PieceConstants.NONE;
 
         setPiece(toIndex, piece);
-        setPiece(fromIndex, PieceConstants.NONE);
+        setPiece(fromIndex, PieceConstants.NONE);  // ✅ Remove piece from old position
 
-        // ✅ Play sound based on move type
+        // ✅ **Trigger promotion if a pawn reaches the last rank**
+        if ((piece & 7) == PieceConstants.PAWN) { // If moving piece is a pawn
+            int lastRank = (piece & PieceConstants.WHITE) != 0 ? 7 : 0;
+            if (toIndex / 8 == lastRank) {
+                promotePawn(toIndex, (piece & PieceConstants.WHITE) != 0);
+            }
+        }
+
+        // ✅ **Play sound based on move type**
         if (isCapture) {
             SoundManager.playCaptureSound();
         } else {
             SoundManager.playMoveSound();
         }
 
-        // ✅ Switch turn after a valid move
+        // ✅ **Switch turn after a valid move**
         isWhiteTurn = !isWhiteTurn;
         System.out.println("✅ Turn switched to: " + (isWhiteTurn ? "White" : "Black"));
 
         return true;
     }
+
 
     public boolean isWhiteTurn() {
         return isWhiteTurn;
@@ -118,4 +127,20 @@ public class Board {
     private int getIndex(char file, int rank) {
         return (rank - 1) * 8 + (file - 'a');
     }
+    public void promotePawn(int index, boolean isWhite) {
+        if (index < 0 || index >= 64) return; // ✅ Ensure valid index range
+
+        int piece = getPiece(index);
+        if ((piece & 7) == PieceConstants.PAWN) { // ✅ Ensure it's a pawn before promotion
+            int promotedPiece = PieceConstants.QUEEN | (isWhite ? PieceConstants.WHITE : PieceConstants.BLACK);
+            setPiece(index, promotedPiece);  // ✅ Replace pawn with queen
+            System.out.println("♛ Pawn promoted to Queen at index: " + index);
+        } else {
+            System.err.println("⚠ Promotion Error: No pawn found at " + index);
+        }
+    }
+
+
+
+
 }

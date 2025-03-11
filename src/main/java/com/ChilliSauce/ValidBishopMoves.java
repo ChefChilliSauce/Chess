@@ -13,32 +13,30 @@ public class ValidBishopMoves {
             int target = index;
 
             while (true) {
-                int prevFile = target % 8; // Store previous column
+                int prevFile = target % 8;
                 target += offset;
 
-                // Boundary check
-                if (target < 0 || target >= 64) break;
+                if (target < 0 || target >= 64) break;  // ✅ Prevents out-of-bounds
 
                 int currFile = target % 8;
                 int fileDiff = Math.abs(currFile - prevFile);
-
-                // Ensure bishop doesn't wrap across rows
-                if (fileDiff != 1) break;
+                if (fileDiff != 1) break; // ✅ Ensure diagonal movement
 
                 int targetPiece = board.getPiece(target);
 
                 if (targetPiece == PieceConstants.NONE) {
-                    validMoves.add(target); // Add empty square
+                    validMoves.add(target);
                 } else {
-                    // Capture opponent piece
-                    if ((targetPiece & PieceConstants.WHITE) != (isWhite ? PieceConstants.WHITE : PieceConstants.BLACK)) {
-                        validMoves.add(target);
+                    boolean isTargetWhite = (targetPiece & PieceConstants.WHITE) != 0;
+                    boolean isTargetBlack = (targetPiece & PieceConstants.BLACK) != 0;
+
+                    if (isWhite && isTargetBlack || !isWhite && isTargetWhite) {
+                        validMoves.add(target); // ✅ Capture allowed
                     }
-                    break; // Stop on first obstacle
+                    break; // ✅ Stop after encountering a piece
                 }
             }
         }
-
         return validMoves;
     }
 }

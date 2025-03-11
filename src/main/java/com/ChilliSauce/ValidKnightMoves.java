@@ -3,30 +3,32 @@ package com.ChilliSauce;
 import java.util.ArrayList;
 import java.util.List;
 
-class ValidKnightMoves {
+public class ValidKnightMoves {
+    private static final int[] KNIGHT_MOVES = {17, 15, 10, 6, -6, -10, -15, -17}; // L-shape moves
+
     public static List<Integer> getValidMoves(Board board, int index, boolean isWhite) {
         List<Integer> validMoves = new ArrayList<>();
 
-        // All knight move offsets (L-shape moves)
-        int[] allPossible = {+17, +15, +10, -6, +6, -10, -15, -17};
+        for (int move : KNIGHT_MOVES) {
+            int target = index + move;
 
-        for (int offset : allPossible) {
-            int targetIndex = index + offset;
+            // ✅ Ensure target is within bounds
+            if (target < 0 || target >= 64) continue;
 
-            // ✅ Step 1: Ensure the move is within board bounds
-            if (targetIndex < 0 || targetIndex >= 64) continue;
+            // ✅ Check if knight crosses board edges (wrap-around prevention)
+            int startFile = index % 8;
+            int targetFile = target % 8;
+            int fileDiff = Math.abs(startFile - targetFile);
 
-            // ✅ Step 2: Prevent knight from wrapping across the board (invalid moves)
-            int currentFile = index % 8;
-            int targetFile = targetIndex % 8;
+            if (fileDiff != 1 && fileDiff != 2) continue; // ✅ Ensure L-shape is correct
 
-            if (Math.abs(currentFile - targetFile) > 2) continue; // A knight can only move max 2 files left/right
+            int targetPiece = board.getPiece(target);
 
-            int targetPiece = board.getPiece(targetIndex);
+            boolean isTargetWhite = (targetPiece & PieceConstants.WHITE) != 0;
+            boolean isTargetBlack = (targetPiece & PieceConstants.BLACK) != 0;
 
-            // ✅ Step 3: Check if the target square is empty or occupied by an opponent
-            if (targetPiece == PieceConstants.NONE || (targetPiece & PieceConstants.WHITE) != (isWhite ? PieceConstants.WHITE : PieceConstants.BLACK)) {
-                validMoves.add(targetIndex);
+            if (targetPiece == PieceConstants.NONE || (isWhite && isTargetBlack) || (!isWhite && isTargetWhite)) {
+                validMoves.add(target); // ✅ Capture enemy or move to empty square
             }
         }
         return validMoves;

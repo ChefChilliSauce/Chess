@@ -16,13 +16,10 @@ public class ValidQueenMoves {
                 int prevFile = target % 8; // Column before moving
                 target += offset;
 
-                // Boundary check
-                if (target < 0 || target >= 64) break;
+                if (target < 0 || target >= 64) break;  // ✅ Prevents out-of-bounds
 
                 int currFile = target % 8;
                 int fileDiff = Math.abs(currFile - prevFile);
-
-                // Ensure proper horizontal, vertical, or diagonal movement
                 if ((offset == 1 || offset == -1) && fileDiff != 1) break;
                 if ((offset == 9 || offset == -9 || offset == 7 || offset == -7) && fileDiff != 1) break;
 
@@ -31,11 +28,14 @@ public class ValidQueenMoves {
                 if (targetPiece == PieceConstants.NONE) {
                     validMoves.add(target);
                 } else {
-                    // Allow capturing opponent piece
-                    if ((targetPiece & PieceConstants.WHITE) != (isWhite ? PieceConstants.WHITE : PieceConstants.BLACK)) {
+                    boolean isTargetWhite = (targetPiece & PieceConstants.WHITE) != 0;
+                    boolean isTargetBlack = (targetPiece & PieceConstants.BLACK) != 0;
+
+                    // ✅ Corrected: Allow capturing opponent piece, but block friendly fire
+                    if (isWhite && isTargetBlack || !isWhite && isTargetWhite) {
                         validMoves.add(target);
                     }
-                    break; // Stop after capturing
+                    break; // Stop after encountering a piece
                 }
             }
         }

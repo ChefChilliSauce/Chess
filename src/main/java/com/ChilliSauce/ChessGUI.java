@@ -79,15 +79,28 @@ public class ChessGUI extends JFrame {
 
                 System.out.println("Target index: " + targetIndex);
 
-                // ✅ Let Board handle move logic
+                int piece = board.getPiece(selectedPieceIndex);
+                if (piece == PieceConstants.NONE) return;
+
                 boolean moveSuccessful = board.makeMove(selectedPieceIndex, targetIndex);
 
                 if (moveSuccessful) {
                     fromIndex = selectedPieceIndex;
                     toIndex = targetIndex;
-                    System.out.println("Move registered: " + fromIndex + " -> " + toIndex);
+
+                    // **Check for Pawn Promotion**
+                    if ((piece & 7) == PieceConstants.PAWN) {
+                        boolean isWhite = (piece & PieceConstants.WHITE) != 0;
+                        int lastRank = isWhite ? 7 : 0;
+
+                        if (targetIndex / 8 == lastRank) {
+                            showPromotionPopup(targetIndex, isWhite);
+                        }
+                    }
+
+                    panel.repaint();
                 } else {
-                    System.out.println("❌ Invalid move! Check turn and rules.");
+                    System.out.println("❌ Invalid move!");
                 }
 
                 validMoves.clear();
@@ -95,8 +108,18 @@ public class ChessGUI extends JFrame {
                 dragging = false;
                 panel.repaint();
             }
-
         });
+        panel.addMouseMotionListener(new MouseAdapter() {
+            @Override
+            public void mouseDragged(MouseEvent e) {
+                if (dragging) {
+                    draggedX = e.getX();
+                    draggedY = e.getY();
+                    panel.repaint();  // ✅ Keep refreshing while dragging
+                }
+            }
+        });
+
 
         moveTableModel = new DefaultTableModel(new String[]{"Move No.", "White", "Black"}, 0);
         moveHistoryTable = new JTable(moveTableModel);
@@ -128,6 +151,55 @@ public class ChessGUI extends JFrame {
 
         setVisible(true);
     }
+    private void showPromotionPopup(int index, boolean isWhite) {
+        JDialog promotionDialog = new JDialog(this, "Choose Promotion Piece", true);
+        promotionDialog.setLayout(new GridLayout(1, 4));
+
+        String colorPrefix = isWhite ? "w" : "b";  // "w" for white, "b" for black
+        String[] pieceNames = {"q", "r", "b", "n"};
+        int[] pieceTypes = {
+                PieceConstants.QUEEN,
+                PieceConstants.ROOK,
+                PieceConstants.BISHOP,
+                PieceConstants.KNIGHT
+        };
+
+        for (int i = 0; i < 4; i++) {
+            // ✅ Load image safely
+            String imagePath = "/assets/" + colorPrefix + pieceNames[i] + ".png";
+            java.net.URL imgURL = getClass().getResource(imagePath);
+
+            if (imgURL == null) {
+                System.err.println("⚠ ERROR: Image not found: " + imagePath);
+                continue; // Skip this piece if image not found
+            }
+
+            // Load and scale the image
+            ImageIcon originalIcon = new ImageIcon(imgURL);
+            Image scaledImage = originalIcon.getImage().getScaledInstance(64, 64, Image.SCALE_SMOOTH); // Resize to 64x64
+            ImageIcon resizedIcon = new ImageIcon(scaledImage);
+
+            JButton button = new JButton(resizedIcon);
+            button.setPreferredSize(new Dimension(80, 80)); // Ensure correct button size
+
+            final int selectedPiece = pieceTypes[i] | (isWhite ? PieceConstants.WHITE : PieceConstants.BLACK);
+
+            button.addActionListener(e -> {
+                board.setPiece(index, selectedPiece);
+                promotionDialog.dispose();
+                repaint(); // Update board after promotion
+            });
+
+            promotionDialog.add(button);
+        }
+
+        promotionDialog.pack(); // Auto-fit dialog size
+        promotionDialog.setLocationRelativeTo(this);
+        promotionDialog.setVisible(true);
+    }
+
+
+
 
     private void drawBoard(Graphics g) {
         Graphics2D g2d = (Graphics2D) g; // Convert to Graphics2D for transparency
@@ -174,6 +246,7 @@ public class ChessGUI extends JFrame {
                     int y = (7 - (index / 8)) * TILE_SIZE;
 
                     if (dragging && index == selectedPieceIndex) {
+                        // ✅ Draw dragged piece at real-time mouse position
                         g.drawImage(pieceImage, draggedX - TILE_SIZE / 2, draggedY - TILE_SIZE / 2, TILE_SIZE, TILE_SIZE, this);
                     } else {
                         g.drawImage(pieceImage, x, y, TILE_SIZE, TILE_SIZE, this);
