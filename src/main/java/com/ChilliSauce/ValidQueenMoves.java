@@ -1,52 +1,44 @@
 package com.ChilliSauce;
 
-public class ValidQueenMoves extends MoveValidator {
+import java.util.ArrayList;
+import java.util.List;
 
-    @Override
-    public boolean isValidMove(Board board, char fromFile, int fromRank, char toFile, int toRank) {
-        Piece piece = board.getPiece(fromFile, fromRank);
-        if (!(piece instanceof Queen)) return false;
+public class ValidQueenMoves {
+    private static final int[] QUEEN_OFFSETS = {8, -8, 1, -1, 9, 7, -9, -7}; // Rook + Bishop moves
 
-        // Queen moves like a Rook or a Bishop
-        boolean isRookMove = isValidRookMove(board, fromFile, fromRank, toFile, toRank);
-        boolean isBishopMove = isValidBishopMove(board, fromFile, fromRank, toFile, toRank);
+    public static List<Integer> getValidMoves(Board board, int index, boolean isWhite) {
+        List<Integer> validMoves = new ArrayList<>();
 
-        if (!isRookMove && !isBishopMove) return false; // Move must be either like a Rook or a Bishop
+        for (int offset : QUEEN_OFFSETS) {
+            int target = index;
 
-        // Ensure destination is empty or occupied by an opponent
-        Piece target = board.getPiece(toFile, toRank);
-        return target == null || !target.getColor().equals(piece.getColor());
-    }
+            while (true) {
+                int prevFile = target % 8; // Column before moving
+                target += offset;
 
-    private boolean isValidRookMove(Board board, char fromFile, int fromRank, char toFile, int toRank) {
-        if (fromFile != toFile && fromRank != toRank) return false; // Must be straight-line movement
+                // Boundary check
+                if (target < 0 || target >= 64) break;
 
-        int step = (fromFile == toFile) ? (toRank > fromRank ? 1 : -1) : (toFile > fromFile ? 1 : -1);
-        if (fromFile == toFile) { // Vertical move
-            for (int r = fromRank + step; r != toRank; r += step) {
-                if (board.getPiece(fromFile, r) != null) return false;
-            }
-        } else { // Horizontal move
-            for (char f = (char) (fromFile + step); f != toFile; f += step) {
-                if (board.getPiece(f, fromRank) != null) return false;
+                int currFile = target % 8;
+                int fileDiff = Math.abs(currFile - prevFile);
+
+                // Ensure proper horizontal, vertical, or diagonal movement
+                if ((offset == 1 || offset == -1) && fileDiff != 1) break;
+                if ((offset == 9 || offset == -9 || offset == 7 || offset == -7) && fileDiff != 1) break;
+
+                int targetPiece = board.getPiece(target);
+
+                if (targetPiece == PieceConstants.NONE) {
+                    validMoves.add(target);
+                } else {
+                    // Allow capturing opponent piece
+                    if ((targetPiece & PieceConstants.WHITE) != (isWhite ? PieceConstants.WHITE : PieceConstants.BLACK)) {
+                        validMoves.add(target);
+                    }
+                    break; // Stop after capturing
+                }
             }
         }
-        return true;
-    }
-
-    private boolean isValidBishopMove(Board board, char fromFile, int fromRank, char toFile, int toRank) {
-        if (Math.abs(fromFile - toFile) != Math.abs(fromRank - toRank)) return false; // Must be diagonal move
-
-        int fileStep = (toFile > fromFile) ? 1 : -1;
-        int rankStep = (toRank > fromRank) ? 1 : -1;
-        char f = (char) (fromFile + fileStep);
-        int r = fromRank + rankStep;
-
-        while (f != toFile && r != toRank) {
-            if (board.getPiece(f, r) != null) return false;
-            f += fileStep;
-            r += rankStep;
-        }
-        return true;
+        return validMoves;
     }
 }

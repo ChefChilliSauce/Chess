@@ -1,76 +1,34 @@
 package com.ChilliSauce;
 
-class ValidKingMoves extends MoveValidator {
-    @Override
-    public boolean isValidMove(Board board, char fromFile, int fromRank, char toFile, int toRank) {
-        Piece piece = board.getPiece(fromFile, fromRank);
-        if (!(piece instanceof King)) return false;
+import java.util.ArrayList;
+import java.util.List;
+public class ValidKingMoves{
+    public static List<Integer> getValidMoves(Board board, int index, boolean isWhite) {
+        List<Integer> validMoves = new ArrayList<>();
+        int[] allPossible = {8, -8, 1, -1, 9, 7, -7, -9}; // King moves in all 8 directions
 
-        int fileDiff = Math.abs(toFile - fromFile);
-        int rankDiff = Math.abs(toRank - fromRank);
-        Piece target = board.getPiece(toFile, toRank);
+        for (int x : allPossible) {
+            int target = index + x;
 
-        // Normal King movement
-        return fileDiff <= 1 && rankDiff <= 1 && (target == null || !target.getColor().equals(piece.getColor()));
-    }
-}
+            // Ensure target is within bounds
+            if (target < 0 || target >= 64) continue;
 
-class GameLogic {
-    public static boolean isKingInCheck(Board board, String color) {
-        char kingFile = '-';
-        int kingRank = -1;
+            // Prevent horizontal wrap-around
+            if ((index % 8 == 0 && (x == -1 || x == -9 || x == 7)) ||
+                    (index % 8 == 7 && (x == 1 || x == 9 || x == -7)))
+                continue;
 
-        for (char file = 'a'; file <= 'h'; file++) {
-            for (int rank = 1; rank <= 8; rank++) {
-                Piece piece = board.getPiece(file, rank);
-                if (piece instanceof King && piece.getColor().equals(color)) {
-                    kingFile = file;
-                    kingRank = rank;
-                    break;
-                }
+            int targetPiece = board.getPiece(target);
+
+            // Stop if the square is occupied by the same color
+            if (targetPiece != PieceConstants.NONE &&
+                    (targetPiece & PieceConstants.WHITE) == (isWhite ? PieceConstants.WHITE : PieceConstants.BLACK)) {
+                continue;
             }
-        }
 
-        if (kingFile == '-' || kingRank == -1) return false;
-
-        for (char file = 'a'; file <= 'h'; file++) {
-            for (int rank = 1; rank <= 8; rank++) {
-                Piece piece = board.getPiece(file, rank);
-                if (piece != null && !piece.getColor().equals(color)) {
-                    MoveValidator validator = board.getMoveValidator(piece);
-                    if (validator != null && validator.isValidMove(board, file, rank, kingFile, kingRank)) {
-                        return true;
-                    }
-                }
-            }
+            validMoves.add(target); // Add empty square or opponent capture move
         }
-        return false;
+        return validMoves;
     }
 
-    public static boolean isCheckmate(Board board, String color) {
-        if (!isKingInCheck(board, color)) return false;
-
-        for (char file = 'a'; file <= 'h'; file++) {
-            for (int rank = 1; rank <= 8; rank++) {
-                Piece piece = board.getPiece(file, rank);
-                if (piece != null && piece.getColor().equals(color)) {
-                    for (char toFile = 'a'; toFile <= 'h'; toFile++) {
-                        for (int toRank = 1; toRank <= 8; toRank++) {
-                            MoveValidator validator = board.getMoveValidator(piece);
-                            if (validator != null && validator.isValidMove(board, file, rank, toFile, toRank)) {
-                                Piece capturedPiece = board.getPiece(toFile, toRank);
-                                board.setPiece(toFile, toRank, piece);
-                                board.setPiece(file, rank, null);
-                                boolean stillInCheck = isKingInCheck(board, color);
-                                board.setPiece(file, rank, piece);
-                                board.setPiece(toFile, toRank, capturedPiece);
-                                if (!stillInCheck) return false;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        return true;
-    }
 }

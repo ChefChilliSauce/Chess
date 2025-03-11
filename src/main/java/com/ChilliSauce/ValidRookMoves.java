@@ -1,29 +1,43 @@
 package com.ChilliSauce;
 
-class ValidRookMoves extends MoveValidator {
-    @Override
-    public boolean isValidMove(Board board, char fromFile, int fromRank, char toFile, int toRank) {
-        Piece piece = board.getPiece(fromFile, fromRank);
-        if (!(piece instanceof Rook)) return false;
+import java.util.ArrayList;
+import java.util.List;
 
-        // Rook moves in a straight line either horizontally or vertically
-        if (fromFile != toFile && fromRank != toRank) return false;
+public class ValidRookMoves {
+    private static final int[] ROOK_OFFSETS = {8, -8, 1, -1}; // Vertical & Horizontal moves
 
-        // Check for obstacles in the path
-        if (fromFile == toFile) { // Vertical move
-            int step = (toRank > fromRank) ? 1 : -1;
-            for (int r = fromRank + step; r != toRank; r += step) {
-                if (board.getPiece(fromFile, r) != null) return false;
-            }
-        } else { // Horizontal move
-            int step = (toFile > fromFile) ? 1 : -1;
-            for (char f = (char) (fromFile + step); f != toFile; f += step) {
-                if (board.getPiece(f, fromRank) != null) return false;
+    public static List<Integer> getValidMoves(Board board, int index, boolean isWhite) {
+        List<Integer> validMoves = new ArrayList<>();
+
+        for (int offset : ROOK_OFFSETS) {
+            int target = index;
+
+            while (true) {
+                int prevFile = target % 8; // Column before moving
+                target += offset;
+
+                // Boundary check
+                if (target < 0 || target >= 64) break;
+
+                int currFile = target % 8;
+                int fileDiff = Math.abs(currFile - prevFile);
+
+                // Ensure proper movement (horizontal or vertical only)
+                if ((offset == 1 || offset == -1) && fileDiff != 1) break;
+
+                int targetPiece = board.getPiece(target);
+
+                if (targetPiece == PieceConstants.NONE) {
+                    validMoves.add(target);
+                } else {
+                    // Allow capturing opponent piece
+                    if ((targetPiece & PieceConstants.WHITE) != (isWhite ? PieceConstants.WHITE : PieceConstants.BLACK)) {
+                        validMoves.add(target);
+                    }
+                    break; // Stop after capturing
+                }
             }
         }
-
-        // Ensure destination is empty or occupied by an opponent
-        Piece target = board.getPiece(toFile, toRank);
-        return target == null || !target.getColor().equals(piece.getColor());
+        return validMoves;
     }
 }

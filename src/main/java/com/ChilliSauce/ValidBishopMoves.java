@@ -1,29 +1,44 @@
 package com.ChilliSauce;
 
-public class ValidBishopMoves extends MoveValidator {
+import java.util.ArrayList;
+import java.util.List;
 
-    @Override
-    public boolean isValidMove(Board board, char fromFile, int fromRank, char toFile, int toRank) {
-        Piece piece = board.getPiece(fromFile, fromRank);
-        if (!(piece instanceof Bishop)) return false;
+public class ValidBishopMoves {
+    private static final int[] BISHOP_OFFSETS = {9, 7, -9, -7}; // Diagonal moves
 
-        // Bishop moves diagonally
-        if (Math.abs(fromFile - toFile) != Math.abs(fromRank - toRank)) return false;
+    public static List<Integer> getValidMoves(Board board, int index, boolean isWhite) {
+        List<Integer> validMoves = new ArrayList<>();
 
-        // Check for obstacles
-        int fileStep = (toFile > fromFile) ? 1 : -1;
-        int rankStep = (toRank > fromRank) ? 1 : -1;
+        for (int offset : BISHOP_OFFSETS) {
+            int target = index;
 
-        char f = (char) (fromFile + fileStep);
-        int r = fromRank + rankStep;
-        while (f != toFile && r != toRank) {
-            if (board.getPiece(f, r) != null) return false;
-            f += fileStep;
-            r += rankStep;
+            while (true) {
+                int prevFile = target % 8; // Store previous column
+                target += offset;
+
+                // Boundary check
+                if (target < 0 || target >= 64) break;
+
+                int currFile = target % 8;
+                int fileDiff = Math.abs(currFile - prevFile);
+
+                // Ensure bishop doesn't wrap across rows
+                if (fileDiff != 1) break;
+
+                int targetPiece = board.getPiece(target);
+
+                if (targetPiece == PieceConstants.NONE) {
+                    validMoves.add(target); // Add empty square
+                } else {
+                    // Capture opponent piece
+                    if ((targetPiece & PieceConstants.WHITE) != (isWhite ? PieceConstants.WHITE : PieceConstants.BLACK)) {
+                        validMoves.add(target);
+                    }
+                    break; // Stop on first obstacle
+                }
+            }
         }
 
-        // Ensure destination is empty or occupied by an opponent
-        Piece target = board.getPiece(toFile, toRank);
-        return target == null || !target.getColor().equals(piece.getColor());
+        return validMoves;
     }
 }

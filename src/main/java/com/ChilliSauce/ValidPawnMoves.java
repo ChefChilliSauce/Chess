@@ -1,31 +1,41 @@
 package com.ChilliSauce;
 
-class ValidPawnMoves extends MoveValidator {
-    @Override
-    public boolean isValidMove(Board board, char fromFile, int fromRank, char toFile, int toRank) {
-        Piece piece = board.getPiece(fromFile, fromRank);
-        if (!(piece instanceof Pawn)) return false; // Ensure it's a Pawn
+import java.util.ArrayList;
+import java.util.List;
 
-        Pawn pawn = (Pawn) piece;
-        int direction = pawn.getColor().equals("white") ? 1 : -1;
-        int startRank = pawn.getColor().equals("white") ? 2 : 7;
+class ValidPawnMoves {
+    public static List<Integer> getValidMoves(Board board, int index, boolean isWhite) {
+        List<Integer> validMoves = new ArrayList<>();
 
-        // Move forward
-        if (fromFile == toFile) {
-            if (toRank == fromRank + direction && board.getPiece(toFile, toRank) == null) {
-                return true; // One square forward
-            }
-            if (fromRank == startRank && toRank == fromRank + 2 * direction && board.getPiece(toFile, toRank) == null) {
-                return true; // Two squares forward from start
+        int direction = isWhite ? 8 : -8;  // White moves up (+8), Black moves down (-8)
+        int startRank = isWhite ? 1 : 6;   // White starts at rank 1, Black at rank 6
+
+        // 1️⃣ Normal Move (Single Step)
+        int oneStep = index + direction;
+        if (oneStep >= 0 && oneStep < 64 && board.getPiece(oneStep) == PieceConstants.NONE) {
+            validMoves.add(oneStep);
+
+            // 2️⃣ First Move (Two Steps) - Only if first step is empty
+            if ((index / 8) == startRank) {  // Check if pawn is at its starting rank
+                int twoSteps = index + (2 * direction);
+                if (board.getPiece(twoSteps) == PieceConstants.NONE) {
+                    validMoves.add(twoSteps);
+                }
             }
         }
 
-        // Capture move
-        if (Math.abs(toFile - fromFile) == 1 && toRank == fromRank + direction) {
-            Piece target = board.getPiece(toFile, toRank);
-            return target != null && !target.getColor().equals(pawn.getColor());
+        // 3️⃣ Capturing Moves (Diagonal Left & Right)
+        int[] captureOffsets = {7, 9};
+        for (int offset : captureOffsets) {
+            int target = index + (isWhite ? offset : -offset);
+            if (target >= 0 && target < 64) {
+                int targetPiece = board.getPiece(target);
+                if (targetPiece != PieceConstants.NONE && (targetPiece & PieceConstants.WHITE) != (isWhite ? PieceConstants.WHITE : PieceConstants.BLACK)) {
+                    validMoves.add(target);
+                }
+            }
         }
 
-        return false;
+        return validMoves;
     }
 }

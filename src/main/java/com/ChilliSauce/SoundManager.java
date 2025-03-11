@@ -25,4 +25,7 @@ public class SoundManager {
     public static void playCaptureSound() {
         playSound("src/main/resources/sounds/capture.wav");
     }
+    public static void playCastlingSound() {
+        playSound("src/main/resources/sounds/castle.wav");
+    }
 }

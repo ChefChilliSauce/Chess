@@ -1,170 +1,80 @@
 package com.ChilliSauce;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Board {
-    private final Piece[][] board;
-    private final Map<String, MoveValidator> moveValidators;
+    private final int[] board;
+    final String startFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
     public Board() {
-        board = new Piece[8][8];
-        moveValidators = new HashMap<>();
-        initializeMoveValidators();
-        setupBoard();
+        board = new int[64]; // 1D board representation
+        loadFEN();
     }
 
-    private void initializeMoveValidators() {
-        moveValidators.put("Pawn", new ValidPawnMoves());
-        moveValidators.put("Rook", new ValidRookMoves());
-        moveValidators.put("Knight", new ValidKnightMoves());
-        moveValidators.put("Bishop", new ValidBishopMoves());
-        moveValidators.put("Queen", new ValidQueenMoves());
-        moveValidators.put("King", new ValidKingMoves());
-    }
+    private void loadFEN() {
+        final String[] parts = startFEN.split(" ");
+        String[] rows = parts[0].split("/");
 
-    private void setupBoard() {
-        // Place pawns
-        for (char file = 'a'; file <= 'h'; file++) {
-            board[rankToIndex(2)][fileToIndex(file)] = new Pawn("white");
-            board[rankToIndex(7)][fileToIndex(file)] = new Pawn("black");
-        }
-
-        // Place rooks
-        placePiece('a', 1, new Rook("white"));
-        placePiece('h', 1, new Rook("white"));
-        placePiece('a', 8, new Rook("black"));
-        placePiece('h', 8, new Rook("black"));
-
-        // Place knights
-        placePiece('b', 1, new Knight("white"));
-        placePiece('g', 1, new Knight("white"));
-        placePiece('b', 8, new Knight("black"));
-        placePiece('g', 8, new Knight("black"));
-
-        // Place bishops
-        placePiece('c', 1, new Bishop("white"));
-        placePiece('f', 1, new Bishop("white"));
-        placePiece('c', 8, new Bishop("black"));
-        placePiece('f', 8, new Bishop("black"));
-
-        // Place queens
-        placePiece('d', 1, new Queen("white"));
-        placePiece('d', 8, new Queen("black"));
-
-        // Place kings
-        placePiece('e', 1, new King("white"));
-        placePiece('e', 8, new King("black"));
-    }
-
-    private void placePiece(char file, int rank, Piece piece) {
-        board[rankToIndex(rank)][fileToIndex(file)] = piece;
-    }
-
-    public Piece getPiece(char file, int rank) {
-        int x = rankToIndex(rank);
-        int y = fileToIndex(file);
-        return (x >= 0 && x < 8 && y >= 0 && y < 8) ? board[x][y] : null;
-    }
-
-    public void setPiece(char file, int rank, Piece piece) {
-        int x = rankToIndex(rank);
-        int y = fileToIndex(file);
-        if (x >= 0 && x < 8 && y >= 0 && y < 8) {
-            board[x][y] = piece;
-        }
-    }
-
-    public boolean movePiece(char fromFile, int fromRank, char toFile, int toRank, TurnManager turnManager) {
-        Piece piece = getPiece(fromFile, fromRank);
-        if (piece == null) return false;
-
-        MoveValidator validator = moveValidators.get(piece.getClass().getSimpleName());
-        if (validator == null) return false;
-
-        Piece capturedPiece = getPiece(toFile, toRank); // ✅ Check BEFORE moving
-
-        if (validator.isValidMove(this, fromFile, fromRank, toFile, toRank)) {
-            setPiece(toFile, toRank, piece);  // Move piece
-            setPiece(fromFile, fromRank, null); // Clear old position
-
-            if (isKingInCheck(piece.getColor())) {
-                // Undo move if King is in check
-                setPiece(fromFile, fromRank, piece);
-                setPiece(toFile, toRank, capturedPiece);
-                System.out.println("Move blocked: King would be in check!");
-                return false;
-            }
-
-            turnManager.switchTurn();
-            return true;
-        }
-        return false;
-    }
-
-    public void printBoard() {
-        System.out.println("  a b c d e f g h");
-        System.out.println("  ----------------");
         for (int rank = 8; rank >= 1; rank--) {
-            System.out.print(rank + "| ");
-            for (char file = 'a'; file <= 'h'; file++) {
-                Piece piece = getPiece(file, rank);
-                if (piece != null) {
-                    System.out.print(piece.getColor().charAt(0) + " "); // Display first letter of color
+            String row = rows[8 - rank];
+            int fileIndex = 0;
+
+            for (char ch : row.toCharArray()) {
+                if (Character.isDigit(ch)) {
+                    fileIndex += Character.getNumericValue(ch);
                 } else {
-                    System.out.print(". "); // Empty square
-                }
-            }
-            System.out.println("|" + rank);
-        }
-        System.out.println("  ----------------");
-        System.out.println("  a b c d e f g h");
-    }
+                    int color = Character.isUpperCase(ch) ? PieceConstants.WHITE : PieceConstants.BLACK;
+                    int piece = switch (Character.toLowerCase(ch)) {
+                        case 'k' -> PieceConstants.KING;
+                        case 'q' -> PieceConstants.QUEEN;
+                        case 'r' -> PieceConstants.ROOK;
+                        case 'n' -> PieceConstants.KNIGHT;
+                        case 'b' -> PieceConstants.BISHOP;
+                        case 'p' -> PieceConstants.PAWN;
+                        default -> PieceConstants.NONE;
+                    };
 
-    public static int fileToIndex(char file) {
-        return file - 'a';
-    }
+                    int index = getIndex((char) ('a' + fileIndex), rank);
+                    setPiece(index, piece | color); // ✅ FIXED: Pass only 2 arguments
 
-    public static int rankToIndex(int rank) {
-        return 8 - rank;
-    }
-
-    public MoveValidator getMoveValidator(Piece piece) {
-        return moveValidators.get(piece.getClass().getSimpleName());
-    }
-    public boolean isKingInCheck(String color) {
-        // 1. Find the King's position
-        char kingFile = '-';
-        int kingRank = -1;
-
-        for (char file = 'a'; file <= 'h'; file++) {
-            for (int rank = 1; rank <= 8; rank++) {
-                Piece piece = getPiece(file, rank);
-                if (piece instanceof King && piece.getColor().equals(color)) {
-                    kingFile = file;
-                    kingRank = rank;
-                    break;
+                    fileIndex++;
                 }
             }
         }
-
-        // If the King was not found, return false (should never happen)
-        if (kingFile == '-' || kingRank == -1) return false;
-
-        // 2. Check if any opponent piece can attack the King's position
-        for (char file = 'a'; file <= 'h'; file++) {
-            for (int rank = 1; rank <= 8; rank++) {
-                Piece piece = getPiece(file, rank);
-                if (piece != null && !piece.getColor().equals(color)) {
-                    MoveValidator validator = getMoveValidator(piece);
-                    if (validator != null && validator.isValidMove(this, file, rank, kingFile, kingRank)) {
-                        return true; // King is in check
-                    }
-                }
-            }
-        }
-
-        return false; // King is not in check
     }
 
+
+    public int getPiece(int index) {
+        if (index < 0 || index >= 64) return PieceConstants.NONE;
+        return board[index];
+    }
+
+    public void setPiece(int index, int piece) {
+        if (index < 0 || index >= 64) return;
+        board[index] = piece;
+    }
+
+    public List<Integer> getValidMoves(int index) {
+        int piece = getPiece(index);
+        if (piece == PieceConstants.NONE) return new ArrayList<>();
+
+        boolean isWhite = (piece & PieceConstants.WHITE) != 0;
+        List<Integer> validMoves = new ArrayList<>();
+
+        switch (piece & 7) { // Mask to get piece type
+            case PieceConstants.PAWN -> validMoves = ValidPawnMoves.getValidMoves(this, index, isWhite);
+            case PieceConstants.KNIGHT -> validMoves = ValidKnightMoves.getValidMoves(this, index, isWhite);
+            case PieceConstants.BISHOP -> validMoves = ValidBishopMoves.getValidMoves(this, index, isWhite);
+            case PieceConstants.ROOK -> validMoves = ValidRookMoves.getValidMoves(this, index, isWhite);
+            case PieceConstants.QUEEN -> validMoves = ValidQueenMoves.getValidMoves(this, index, isWhite);
+            case PieceConstants.KING -> validMoves = ValidKingMoves.getValidMoves(this, index, isWhite);
+        }
+
+        return validMoves;
+    }
+
+    private int getIndex(char file, int rank) {
+        return (rank - 1) * 8 + (file - 'a');
+    }
 }
