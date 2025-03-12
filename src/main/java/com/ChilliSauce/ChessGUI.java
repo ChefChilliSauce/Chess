@@ -14,36 +14,77 @@ public class ChessGUI extends JFrame {
     private static final int TILE_SIZE = 80;
     private static final int BOARD_SIZE = TILE_SIZE * 8;
 
+    // ---------------------------------------------------------
+    // UI components
+    // ---------------------------------------------------------
+    private final JPanel chessBoardPanel;
     private final JTable moveHistoryTable;
     private final DefaultTableModel moveTableModel;
+    private JLabel topNameLabel;      // Display name of the player on top
+    private JLabel bottomNameLabel;   // Display name of the player on bottom
 
+    // ---------------------------------------------------------
+    // Chess logic references
+    // ---------------------------------------------------------
     private final Board board;
     private int selectedPieceIndex = -1;
     private int draggedX, draggedY;
     private boolean dragging = false;
-    private final JPanel chessBoardPanel;
-    private int fromIndex = -1;
-    private int toIndex = -1;
     private List<Integer> validMoves = new ArrayList<>();
 
-    // For tracking move number and alternating moves
+    // For highlighting last move
+    private int fromIndex = -1;
+    private int toIndex = -1;
+
+    // ---------------------------------------------------------
+    // Move notation tracking
+    // ---------------------------------------------------------
     private int moveNumber = 1;
     private boolean waitingForBlackMove = false;
 
-    // NEW: Track which side is at the bottom
-    private boolean isWhiteAtBottom = true;
+    // ---------------------------------------------------------
+    // Player info & board orientation
+    // ---------------------------------------------------------
+    private String playerOneName;   // e.g. "Alice"
+    private String playerTwoName;   // e.g. "Bob"
+    private int playerOneColor;     // PieceConstants.WHITE or BLACK
+    private int playerTwoColor;     // PieceConstants.WHITE or BLACK
+    private boolean boardFlipEnabled;
+    private boolean isWhiteAtBottom;  // If true, white is at bottom; otherwise black is at bottom
 
-    public ChessGUI(Board board) {
+    /**
+     * Constructor with all parameters needed for Pass n Play:
+     * - board: the chess logic
+     * - playerOneName, playerTwoName: the user-entered names
+     * - playerOneColor, playerTwoColor: which color each player has
+     * - boardFlipEnabled: whether we flip after each move
+     */
+    public ChessGUI(Board board,
+                    String playerOneName,
+                    String playerTwoName,
+                    int playerOneColor,
+                    int playerTwoColor,
+                    boolean boardFlipEnabled) {
         this.board = board;
-        setTitle("Chess Board UI");
+        this.playerOneName = playerOneName;
+        this.playerTwoName = playerTwoName;
+        this.playerOneColor = playerOneColor;
+        this.playerTwoColor = playerTwoColor;
+        this.boardFlipEnabled = boardFlipEnabled;
+
+        // If flipping is disabled, White always at bottom.
+        // If flipping is enabled, check whose turn it is to decide initial orientation.
+        this.isWhiteAtBottom = boardFlipEnabled ? board.isWhiteTurn() : true;
+
+        setTitle("Chess: " + playerOneName + " vs " + playerTwoName);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setExtendedState(JFrame.MAXIMIZED_BOTH);
         setResizable(false);
         setLayout(null);
 
-        // ---------------------------------
-        // 1) Chess Board Panel
-        // ---------------------------------
+        // -----------------------------
+        // Chess Board Panel
+        // -----------------------------
         chessBoardPanel = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -52,28 +93,22 @@ public class ChessGUI extends JFrame {
                 drawPieces(g);
             }
         };
-        chessBoardPanel.setBounds(100, 100, BOARD_SIZE, BOARD_SIZE);
+        chessBoardPanel.setBounds(50, 50, BOARD_SIZE, BOARD_SIZE);
         chessBoardPanel.setLayout(null);
         chessBoardPanel.setBackground(Color.LIGHT_GRAY);
 
-        // Mouse Listeners for piece dragging
+        // Mouse Listeners
         chessBoardPanel.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
-                // Instead of int row = 7 - (e.getY() / TILE_SIZE), we decide based on isWhiteAtBottom
+                int file = e.getX() / TILE_SIZE;
+                int rank = e.getY() / TILE_SIZE;
 
-                int file = e.getX() / TILE_SIZE;     // 0..7
-                int rank = e.getY() / TILE_SIZE;     // 0..7
-
-                // If White is at bottom, the "top row" in drawing is rank=0 => actual board row=7
-                // If Black is at bottom, we invert it.
                 if (isWhiteAtBottom) {
-                    // row: 7 - rank
-                    // col: file
+                    // White at bottom => top row in screen is board row 7
                     selectedPieceIndex = (7 - rank) * 8 + file;
                 } else {
-                    // row: rank
-                    // col: 7 - file
+                    // Black at bottom => top row in screen is board row 0
                     selectedPieceIndex = (rank * 8) + (7 - file);
                 }
 
@@ -109,11 +144,9 @@ public class ChessGUI extends JFrame {
                 if (moveSuccessful) {
                     fromIndex = selectedPieceIndex;
                     toIndex = targetIndex;
-
-                    // Record the move
                     recordMove(piece, fromIndex, toIndex);
 
-                    // If it's a pawn reaching the last rank, show promotion popup
+                    // If it was a pawn promotion, show popup (already handled in board, but let's confirm)
                     if ((piece & 7) == PieceConstants.PAWN) {
                         boolean isWhite = ((piece & PieceConstants.WHITE) != 0);
                         int lastRank = isWhite ? 7 : 0;
@@ -122,9 +155,14 @@ public class ChessGUI extends JFrame {
                         }
                     }
 
-                    // NEW: Flip the board if it's now Black's turn, or flip back if White's turn
-                    // So the side to move is always at the bottom
-                    isWhiteAtBottom = board.isWhiteTurn();
+                    // Flip board if enabled
+                    if (boardFlipEnabled) {
+                        isWhiteAtBottom = board.isWhiteTurn();
+                    } else {
+                        isWhiteAtBottom = true; // Always keep white at bottom if flipping is off
+                    }
+                    // Update name labels so top/bottom swap if needed
+                    updateNameLabels();
                     repaintBoard();
                 }
 
@@ -146,44 +184,85 @@ public class ChessGUI extends JFrame {
             }
         });
 
-        // ---------------------------------
-        // 2) Move History Table
-        // ---------------------------------
+        // -----------------------------
+        // Move History Table
+        // -----------------------------
         moveTableModel = new DefaultTableModel(new String[]{"Move No.", "White", "Black"}, 0);
         moveHistoryTable = new JTable(moveTableModel);
-        moveHistoryTable.setBounds(1000, 120, 400, 500);
+        moveHistoryTable.setBounds(750, 50, 400, 500);
         moveHistoryTable.setRowHeight(30);
 
         // Hide table header
         JTableHeader tableHeader = moveHistoryTable.getTableHeader();
         tableHeader.setVisible(false);
         tableHeader.setPreferredSize(new Dimension(0, 0));
+        tableHeader.setBorder(null);
 
-        // Custom cell renderer to show piece icon + notation
-        moveHistoryTable.setDefaultRenderer(Object.class, new MoveCellRenderer());
-
-        JScrollPane moveScrollPane = new JScrollPane(moveHistoryTable);
-        moveScrollPane.setBounds(1000, 120, 400, 500);
-        moveHistoryTable.getColumnModel().getColumn(0).setPreferredWidth(40);
         moveHistoryTable.setShowGrid(false);
         moveHistoryTable.setIntercellSpacing(new Dimension(0, 0));
         moveHistoryTable.setBorder(null);
+        moveHistoryTable.setDefaultRenderer(Object.class, new MoveCellRenderer());
+
+        JScrollPane moveScrollPane = new JScrollPane(moveHistoryTable);
+        moveScrollPane.setBounds(750, 50, 400, 500);
         moveScrollPane.setBorder(null);
 
-        // Add both board & table to the frame
+        // Force the first column to be small
+        moveHistoryTable.getColumnModel().getColumn(0).setMinWidth(40);
+        moveHistoryTable.getColumnModel().getColumn(0).setMaxWidth(40);
+        moveHistoryTable.getColumnModel().getColumn(0).setPreferredWidth(40);
+
+        // -----------------------------
+        // Name Labels (top & bottom)
+        // -----------------------------
+        topNameLabel = new JLabel("", SwingConstants.CENTER);
+        bottomNameLabel = new JLabel("", SwingConstants.CENTER);
+
+        topNameLabel.setFont(new Font("Arial", Font.BOLD, 18));
+        bottomNameLabel.setFont(new Font("Arial", Font.BOLD, 18));
+
+        // Position them around the board
+        // Board is at (50,50), size 640 => let's place top label at y=20, bottom at y=700
+        topNameLabel.setBounds(50, 20, 640, 30);
+        bottomNameLabel.setBounds(50, 50 + BOARD_SIZE + 10, 640, 30);
+
+        // Add them
         getContentPane().add(chessBoardPanel);
         getContentPane().add(moveScrollPane);
+        getContentPane().add(topNameLabel);
+        getContentPane().add(bottomNameLabel);
+
+        // Do an initial label update
+        updateNameLabels();
 
         setVisible(true);
     }
 
+    // ---------------------------------------------------------
+    // Update the name labels based on which color is at bottom
+    // ---------------------------------------------------------
+    private void updateNameLabels() {
+        // Figure out which player is White, which is Black
+        String whitePlayer = (playerOneColor == PieceConstants.WHITE) ? playerOneName : playerTwoName;
+        String blackPlayer = (playerOneColor == PieceConstants.BLACK) ? playerOneName : playerTwoName;
+
+        if (isWhiteAtBottom) {
+            bottomNameLabel.setText(whitePlayer);
+            topNameLabel.setText(blackPlayer);
+        } else {
+            bottomNameLabel.setText(blackPlayer);
+            topNameLabel.setText(whitePlayer);
+        }
+    }
+
+    // Repaint the board
     public void repaintBoard() {
         SwingUtilities.invokeLater(chessBoardPanel::repaint);
     }
 
-    /**
-     * Show Promotion Popup
-     */
+    // ---------------------------------------------------------
+    // Show Promotion Popup
+    // ---------------------------------------------------------
     private void showPromotionPopup(int index, boolean isWhite) {
         JDialog promotionDialog = new JDialog(this, "Choose Promotion Piece", true);
         promotionDialog.setLayout(new GridLayout(1, 4));
@@ -196,12 +275,10 @@ public class ChessGUI extends JFrame {
         for (int i = 0; i < 4; i++) {
             String imagePath = "/assets/" + colorPrefix + pieceNames[i] + ".png";
             java.net.URL imgURL = getClass().getResource(imagePath);
-
             if (imgURL == null) {
                 System.err.println("⚠ ERROR: Image not found: " + imagePath);
                 continue;
             }
-
             ImageIcon originalIcon = new ImageIcon(imgURL);
             Image scaledImage = originalIcon.getImage().getScaledInstance(64, 64, Image.SCALE_SMOOTH);
             ImageIcon resizedIcon = new ImageIcon(scaledImage);
@@ -210,14 +287,12 @@ public class ChessGUI extends JFrame {
             button.setPreferredSize(new Dimension(80, 80));
 
             final int selectedPiece = pieceTypes[i] | (isWhite ? PieceConstants.WHITE : PieceConstants.BLACK);
-
             button.addActionListener(e -> {
                 board.setPiece(index, selectedPiece);
                 promotionDialog.dispose();
                 SoundManager.playPromotionSound();
                 repaintBoard();
             });
-
             promotionDialog.add(button);
         }
 
@@ -228,46 +303,43 @@ public class ChessGUI extends JFrame {
         promotionDialog.setVisible(true);
     }
 
-    /**
-     * Draw the Board
-     */
+    // ---------------------------------------------------------
+    // Drawing the Board (tiles, highlights)
+    // ---------------------------------------------------------
     private void drawBoard(Graphics g) {
         Graphics2D g2d = (Graphics2D) g;
-
-        // We'll loop over "screen rows" 0..7, but map them to actual board squares
         for (int screenRow = 0; screenRow < 8; screenRow++) {
             for (int screenCol = 0; screenCol < 8; screenCol++) {
-                // Decide which board row/col to get based on isWhiteAtBottom
                 int boardRow, boardCol;
                 if (isWhiteAtBottom) {
-                    boardRow = 7 - screenRow;  // top row in screen => row 7 in board
-                    boardCol = screenCol;      // left col in screen => col 0
+                    boardRow = 7 - screenRow;
+                    boardCol = screenCol;
                 } else {
-                    boardRow = screenRow;       // top row in screen => row 0 in board
-                    boardCol = 7 - screenCol;   // left col in screen => col 7
+                    boardRow = screenRow;
+                    boardCol = 7 - screenCol;
                 }
 
                 int index = boardRow * 8 + boardCol;
-
                 boolean isLastMove = (index == fromIndex || index == toIndex);
                 boolean isValidMove = validMoves.contains(index);
 
-                // Where do we draw it on screen?
                 int x = screenCol * TILE_SIZE;
                 int y = screenRow * TILE_SIZE;
 
-                // Square color
+                // Normal squares
                 g2d.setColor(((screenRow + screenCol) % 2 == 0)
                         ? Color.decode("#ebecd0")
                         : Color.decode("#6e9552"));
                 g2d.fillRect(x, y, TILE_SIZE, TILE_SIZE);
 
+                // Highlight last move
                 if (isLastMove) {
                     g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f));
                     g2d.setColor(Color.YELLOW);
                     g2d.fillRect(x, y, TILE_SIZE, TILE_SIZE);
                 }
 
+                // Highlight valid moves
                 if (isValidMove) {
                     g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.4f));
                     g2d.setColor(Color.BLUE);
@@ -279,23 +351,19 @@ public class ChessGUI extends JFrame {
         }
     }
 
-    /**
-     * Draw Pieces
-     */
+    // ---------------------------------------------------------
+    // Drawing the Pieces
+    // ---------------------------------------------------------
     private void drawPieces(Graphics g) {
         Graphics2D g2d = (Graphics2D) g;
-
-        // We iterate over all squares 0..63, find the piece, then compute its on-screen position
         for (int index = 0; index < 64; index++) {
             int piece = board.getPiece(index);
             if (piece == PieceConstants.NONE) continue;
 
-            // Convert index to boardRow, boardCol
             int boardRow = index / 8;
             int boardCol = index % 8;
-
-            // Now map boardRow,boardCol to "screen" row,col
             int screenRow, screenCol;
+
             if (isWhiteAtBottom) {
                 screenRow = 7 - boardRow;
                 screenCol = boardCol;
@@ -314,9 +382,9 @@ public class ChessGUI extends JFrame {
         }
     }
 
-    /**
-     * Record a Move in the History Table
-     */
+    // ---------------------------------------------------------
+    // Recording a move in the move history table
+    // ---------------------------------------------------------
     private void recordMove(int piece, int fromIndex, int toIndex) {
         boolean isWhite = ((piece & PieceConstants.WHITE) != 0);
 
@@ -328,14 +396,13 @@ public class ChessGUI extends JFrame {
 
         String notation = buildAlgebraicNotation(piece, fromIndex, toIndex, isCapture, isCheck);
 
-        // Create scaled icon
+        // Create a scaled icon
         Image pieceImg = PieceConstants.getPieceImage(piece);
         Image scaledImg = pieceImg.getScaledInstance(20, 20, Image.SCALE_SMOOTH);
         ImageIcon pieceIcon = new ImageIcon(scaledImg);
 
         MoveCellData cellData = new MoveCellData(pieceIcon, notation);
 
-        // Insert into table
         if (isWhite) {
             Object[] rowData = { moveNumber + ".", cellData, "" };
             moveTableModel.addRow(rowData);
@@ -354,23 +421,23 @@ public class ChessGUI extends JFrame {
         }
     }
 
-    private String buildAlgebraicNotation(int piece, int fromIndex, int toIndex, boolean isCapture, boolean isCheck) {
+    private String buildAlgebraicNotation(int piece, int fromIndex, int toIndex,
+                                          boolean isCapture, boolean isCheck) {
         int type = piece & 7;
-        // If king and move distance is 2, it's castling.
+        // Castling
         if (type == PieceConstants.KING && Math.abs(fromIndex - toIndex) == 2) {
             String castleNotation = (toIndex > fromIndex) ? "O-O" : "O-O-O";
             if (isCheck) castleNotation += "+";
             return castleNotation;
         }
 
-        // Otherwise normal notation
         String pieceLetter = switch (type) {
-            case PieceConstants.KING -> "K";
-            case PieceConstants.QUEEN -> "Q";
-            case PieceConstants.ROOK -> "R";
+            case PieceConstants.KING   -> "K";
+            case PieceConstants.QUEEN  -> "Q";
+            case PieceConstants.ROOK   -> "R";
             case PieceConstants.BISHOP -> "B";
             case PieceConstants.KNIGHT -> "N";
-            default -> ""; // pawn => no letter
+            default -> ""; // pawn
         };
 
         String fromFile = String.valueOf((char) ('a' + (fromIndex % 8)));
@@ -378,13 +445,14 @@ public class ChessGUI extends JFrame {
         int toRankNum   = (toIndex / 8) + 1;
         String toRank   = String.valueOf(toRankNum);
 
+        // Pawns capturing
         if (type == PieceConstants.PAWN && isCapture) {
             pieceLetter = fromFile;
         }
 
-        String notation;
-        if (isCapture) notation = pieceLetter + "x" + toFile + toRank;
-        else notation = pieceLetter + toFile + toRank;
+        String notation = isCapture
+                ? pieceLetter + "x" + toFile + toRank
+                : pieceLetter + toFile + toRank;
 
         if (isCheck) notation += "+";
         return notation;
@@ -403,23 +471,26 @@ public class ChessGUI extends JFrame {
         return board.isSquareUnderAttack(kingIndex, !sideIsWhite);
     }
 
-    // Container for move cell data
+    // ---------------------------------------------------------
+    // Data structure & renderer for table cells
+    // ---------------------------------------------------------
     private static class MoveCellData {
         final ImageIcon icon;
         final String text;
+
         public MoveCellData(ImageIcon icon, String text) {
             this.icon = icon;
             this.text = text;
         }
     }
 
-    // Custom cell renderer
     private static class MoveCellRenderer extends DefaultTableCellRenderer {
         @Override
         public Component getTableCellRendererComponent(
-                JTable table, Object value, boolean isSelected,
-                boolean hasFocus, int row, int column) {
-
+                JTable table, Object value,
+                boolean isSelected, boolean hasFocus,
+                int row, int column)
+        {
             JLabel label = (JLabel) super.getTableCellRendererComponent(
                     table, value, isSelected, hasFocus, row, column);
 
@@ -436,8 +507,17 @@ public class ChessGUI extends JFrame {
         }
     }
 
+    // ---------------------------------------------------------
+    // (Optional) main method for local testing
+    // ---------------------------------------------------------
     public static void main(String[] args) {
         Board board = new Board();
-        SwingUtilities.invokeLater(() -> new ChessGUI(board));
+        // Example: PlayerOne is White, PlayerTwo is Black, board flip is ON
+        SwingUtilities.invokeLater(() -> new ChessGUI(board,
+                "Alice",
+                "Bob",
+                PieceConstants.WHITE,
+                PieceConstants.BLACK,
+                true));
     }
 }
