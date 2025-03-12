@@ -32,6 +32,7 @@ public class ChessGUI extends JFrame {
         setTitle("Chess Board UI");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setExtendedState(JFrame.MAXIMIZED_BOTH);
+        setResizable(false);
         setLayout(null);
 
         JPanel panel = new JPanel() {
@@ -153,6 +154,7 @@ public class ChessGUI extends JFrame {
     }
     private void showPromotionPopup(int index, boolean isWhite) {
         JDialog promotionDialog = new JDialog(this, "Choose Promotion Piece", true);
+        promotionDialog.setUndecorated(true); // ✅ Remove title bar
         promotionDialog.setLayout(new GridLayout(1, 4));
 
         String colorPrefix = isWhite ? "w" : "b";  // "w" for white, "b" for black
@@ -171,12 +173,12 @@ public class ChessGUI extends JFrame {
 
             if (imgURL == null) {
                 System.err.println("⚠ ERROR: Image not found: " + imagePath);
-                continue; // Skip this piece if image not found
+                continue;
             }
 
             // Load and scale the image
             ImageIcon originalIcon = new ImageIcon(imgURL);
-            Image scaledImage = originalIcon.getImage().getScaledInstance(64, 64, Image.SCALE_SMOOTH); // Resize to 64x64
+            Image scaledImage = originalIcon.getImage().getScaledInstance(64, 64, Image.SCALE_SMOOTH);
             ImageIcon resizedIcon = new ImageIcon(scaledImage);
 
             JButton button = new JButton(resizedIcon);
@@ -187,16 +189,19 @@ public class ChessGUI extends JFrame {
             button.addActionListener(e -> {
                 board.setPiece(index, selectedPiece);
                 promotionDialog.dispose();
+                SoundManager.playPromotionSound(); // ✅ Play sound after user selects piece
                 repaint(); // Update board after promotion
             });
 
             promotionDialog.add(button);
         }
 
-        promotionDialog.pack(); // Auto-fit dialog size
+        promotionDialog.pack();
         promotionDialog.setLocationRelativeTo(this);
         promotionDialog.setVisible(true);
     }
+
+
 
 
 

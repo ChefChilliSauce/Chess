@@ -6,6 +6,10 @@ import java.util.List;
 public class Board {
     private final int[] board;
     private boolean isWhiteTurn = true;  // ✅ Track current turn
+    private Integer lastMoveFrom = null;
+    private Integer lastMoveTo = null;
+    private Integer enPassantTarget = null; // ✅ Track En Passant target square
+
     final String startFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
     public Board() {
@@ -61,7 +65,7 @@ public class Board {
 
         boolean isWhitePiece = (piece & PieceConstants.WHITE) != 0;
 
-        // ✅ Ensure correct player moves
+        // ✅ Ensure correct player's turn
         if (isWhitePiece != isWhiteTurn) {
             System.out.println("❌ Not your turn! It's " + (isWhiteTurn ? "White's" : "Black's") + " turn.");
             return new ArrayList<>();
@@ -83,7 +87,7 @@ public class Board {
 
     public boolean makeMove(int fromIndex, int toIndex) {
         int piece = getPiece(fromIndex);
-        if (piece == PieceConstants.NONE) return false; // No piece to move
+        if (piece == PieceConstants.NONE) return false;
 
         List<Integer> validMoves = getValidMoves(fromIndex);
         if (!validMoves.contains(toIndex)) {
@@ -94,25 +98,48 @@ public class Board {
         int targetPiece = getPiece(toIndex);
         boolean isCapture = targetPiece != PieceConstants.NONE;
 
-        setPiece(toIndex, piece);
-        setPiece(fromIndex, PieceConstants.NONE);  // ✅ Remove piece from old position
-
-        // ✅ **Trigger promotion if a pawn reaches the last rank**
-        if ((piece & 7) == PieceConstants.PAWN) { // If moving piece is a pawn
-            int lastRank = (piece & PieceConstants.WHITE) != 0 ? 7 : 0;
-            if (toIndex / 8 == lastRank) {
-                promotePawn(toIndex, (piece & PieceConstants.WHITE) != 0);
-            }
+        // ✅ En Passant Capture Logic
+        if (enPassantTarget != null && toIndex == enPassantTarget) {
+            int capturedPawnIndex = isWhiteTurn ? toIndex - 8 : toIndex + 8;
+            setPiece(capturedPawnIndex, PieceConstants.NONE); // ✅ Remove bypassed pawn
+            isCapture = true; // ✅ Mark as capture
         }
 
-        // ✅ **Play sound based on move type**
-        if (isCapture) {
-            SoundManager.playCaptureSound();
+        // ✅ Handle Pawn Promotion
+        boolean isWhite = (piece & PieceConstants.WHITE) != 0;
+        int promotionRank = isWhite ? 7 : 0;
+        boolean isPromotion = (toIndex / 8) == promotionRank && (piece & 7) == PieceConstants.PAWN;
+
+        if (isPromotion) {
+            System.out.println("♛ Pawn promoted at index: " + toIndex);
+            setPiece(toIndex, PieceConstants.QUEEN | (isWhite ? PieceConstants.WHITE : PieceConstants.BLACK));
         } else {
-            SoundManager.playMoveSound();
+            setPiece(toIndex, piece);
         }
 
-        // ✅ **Switch turn after a valid move**
+        setPiece(fromIndex, PieceConstants.NONE);
+
+        // ✅ Store last move (for En Passant)
+        lastMoveFrom = fromIndex;
+        lastMoveTo = toIndex;
+
+        // ✅ Reset En Passant target unless a pawn moves two squares
+        enPassantTarget = null;
+        if ((piece & 7) == PieceConstants.PAWN && Math.abs(fromIndex - toIndex) == 16) {
+            enPassantTarget = (fromIndex + toIndex) / 2;
+        }
+
+        // ✅ Play the correct sound
+        if (isPromotion) {
+            System.out.println("Promotion sound handled in GUI");
+            // Promotion sound is already played above
+        } else if (isCapture) {
+            SoundManager.playCaptureSound(); // ✅ Capture sound for En Passant or normal capture
+        } else {
+            SoundManager.playMoveSound(); // ✅ Normal move sound
+        }
+
+        // ✅ Switch turn after a valid move
         isWhiteTurn = !isWhiteTurn;
         System.out.println("✅ Turn switched to: " + (isWhiteTurn ? "White" : "Black"));
 
@@ -120,27 +147,24 @@ public class Board {
     }
 
 
+
     public boolean isWhiteTurn() {
         return isWhiteTurn;
+    }
+
+    public Integer getLastMoveFrom() {
+        return lastMoveFrom;
+    }
+
+    public Integer getLastMoveTo() {
+        return lastMoveTo;
+    }
+
+    public Integer getEnPassantTarget() {
+        return enPassantTarget;
     }
 
     private int getIndex(char file, int rank) {
         return (rank - 1) * 8 + (file - 'a');
     }
-    public void promotePawn(int index, boolean isWhite) {
-        if (index < 0 || index >= 64) return; // ✅ Ensure valid index range
-
-        int piece = getPiece(index);
-        if ((piece & 7) == PieceConstants.PAWN) { // ✅ Ensure it's a pawn before promotion
-            int promotedPiece = PieceConstants.QUEEN | (isWhite ? PieceConstants.WHITE : PieceConstants.BLACK);
-            setPiece(index, promotedPiece);  // ✅ Replace pawn with queen
-            System.out.println("♛ Pawn promoted to Queen at index: " + index);
-        } else {
-            System.err.println("⚠ Promotion Error: No pawn found at " + index);
-        }
-    }
-
-
-
-
 }

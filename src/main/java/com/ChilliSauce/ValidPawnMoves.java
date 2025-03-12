@@ -49,7 +49,18 @@ public class ValidPawnMoves {
             }
         }
 
-        // 4️⃣ Handle Promotion
+        // 4️⃣ En Passant Capture
+        Integer enPassantTarget = board.getEnPassantTarget();
+        if (enPassantTarget != null) {
+            int leftCapture = index + (isWhite ? 7 : -9);
+            int rightCapture = index + (isWhite ? 9 : -7);
+
+            if (leftCapture == enPassantTarget || rightCapture == enPassantTarget) {
+                validMoves.add(enPassantTarget);
+            }
+        }
+
+        // 5️⃣ Handle Promotion
         if ((oneStep / 8) == promotionRank) {
             System.out.println("♛ Pawn promotion possible at index: " + oneStep);
         }

@@ -28,4 +28,7 @@ public class SoundManager {
     public static void playCastlingSound() {
         playSound("src/main/resources/sounds/castle.wav");
     }
+    public static void playPromotionSound() {
+        playSound("src/main/resources/sounds/promote.wav");
+    }
 }
