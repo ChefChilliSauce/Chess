@@ -15,19 +15,21 @@ public class ValidKingMoves {
             if (target < 0 || target >= 64) continue;
 
             // Prevent horizontal wrap-around (left-right edge cases)
-            if ((index % 8 == 0 && (move == -1 || move == -9 || move == 7)) ||
-                    (index % 8 == 7 && (move == 1 || move == 9 || move == -7))) continue;
+            if ((index % 8 == 0 && (move == -1 || move == -9 || move == 7)) ||  // Left Edge Wrap
+                    (index % 8 == 7 && (move == 1 || move == 9 || move == -7)))     // Right Edge Wrap
+                continue;
 
             int targetPiece = board.getPiece(target);
 
-            // Ensure the king does NOT capture its own color
-            if (targetPiece != PieceConstants.NONE) {
-                if ((targetPiece & PieceConstants.WHITE) == (isWhite ? PieceConstants.WHITE : PieceConstants.BLACK)) {
-                    continue; // Skip this move
-                }
+            // ✅ Ensure the king does NOT capture its own color
+            boolean isTargetWhite = (targetPiece & PieceConstants.WHITE) != 0;
+            boolean isTargetBlack = (targetPiece & PieceConstants.BLACK) != 0;
+
+            if ((isWhite && isTargetWhite) || (!isWhite && isTargetBlack)) {
+                continue; // ❌ Skip if it's the same color
             }
 
-            validMoves.add(target); // Add empty square or opponent capture move
+            validMoves.add(target); // ✅ Only add legal moves
         }
         return validMoves;
     }

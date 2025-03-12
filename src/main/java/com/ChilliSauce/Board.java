@@ -10,6 +10,10 @@ public class Board {
     private Integer lastMoveTo = null;
     private Integer enPassantTarget = null; // ✅ Track En Passant target square
 
+    private boolean whiteKingMoved = false, blackKingMoved = false;
+    private boolean whiteKingsideRookMoved = false, whiteQueensideRookMoved = false;
+    private boolean blackKingsideRookMoved = false, blackQueensideRookMoved = false;
+
     final String startFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
     public Board() {
@@ -97,22 +101,39 @@ public class Board {
 
         int targetPiece = getPiece(toIndex);
         boolean isCapture = targetPiece != PieceConstants.NONE;
+        boolean isWhite = (piece & PieceConstants.WHITE) != 0;
+
+        // ✅ Handle Castling Logic
+        if ((piece & 7) == PieceConstants.KING) {
+            if (toIndex == fromIndex + 2) { // Kingside Castling
+                if (!hasKingMoved(isWhite) && !hasRookMoved(fromIndex + 3)) {
+                    setPiece(fromIndex + 1, getPiece(fromIndex + 3)); // Move Rook to f1/f8
+                    setPiece(fromIndex + 3, PieceConstants.NONE);
+                    SoundManager.playCastlingSound();
+                }
+            } else if (toIndex == fromIndex - 2) { // Queenside Castling
+                if (!hasKingMoved(isWhite) && !hasRookMoved(fromIndex - 4)) {
+                    setPiece(fromIndex - 1, getPiece(fromIndex - 4)); // Move Rook to d1/d8
+                    setPiece(fromIndex - 4, PieceConstants.NONE);
+                    SoundManager.playCastlingSound();
+                }
+            }
+        }
 
         // ✅ En Passant Capture Logic
         if (enPassantTarget != null && toIndex == enPassantTarget) {
-            int capturedPawnIndex = isWhiteTurn ? toIndex - 8 : toIndex + 8;
+            int capturedPawnIndex = isWhite ? toIndex - 8 : toIndex + 8;
             setPiece(capturedPawnIndex, PieceConstants.NONE); // ✅ Remove bypassed pawn
-            isCapture = true; // ✅ Mark as capture
+            isCapture = true;
         }
 
         // ✅ Handle Pawn Promotion
-        boolean isWhite = (piece & PieceConstants.WHITE) != 0;
         int promotionRank = isWhite ? 7 : 0;
         boolean isPromotion = (toIndex / 8) == promotionRank && (piece & 7) == PieceConstants.PAWN;
 
         if (isPromotion) {
-            System.out.println("♛ Pawn promoted at index: " + toIndex);
             setPiece(toIndex, PieceConstants.QUEEN | (isWhite ? PieceConstants.WHITE : PieceConstants.BLACK));
+            SoundManager.playPromotionSound(); // ✅ Play promotion sound AFTER selection
         } else {
             setPiece(toIndex, piece);
         }
@@ -130,13 +151,10 @@ public class Board {
         }
 
         // ✅ Play the correct sound
-        if (isPromotion) {
-            System.out.println("Promotion sound handled in GUI");
-            // Promotion sound is already played above
-        } else if (isCapture) {
-            SoundManager.playCaptureSound(); // ✅ Capture sound for En Passant or normal capture
+        if (isCapture) {
+            SoundManager.playCaptureSound();
         } else {
-            SoundManager.playMoveSound(); // ✅ Normal move sound
+            SoundManager.playMoveSound();
         }
 
         // ✅ Switch turn after a valid move
@@ -146,7 +164,19 @@ public class Board {
         return true;
     }
 
+    public boolean hasKingMoved(boolean isWhite) {
+        return isWhite ? whiteKingMoved : blackKingMoved;
+    }
 
+    public boolean hasRookMoved(int rookIndex) {
+        return switch (rookIndex) {
+            case 56 -> whiteQueensideRookMoved;
+            case 63 -> whiteKingsideRookMoved;
+            case 0 -> blackQueensideRookMoved;
+            case 7 -> blackKingsideRookMoved;
+            default -> true;
+        };
+    }
 
     public boolean isWhiteTurn() {
         return isWhiteTurn;
