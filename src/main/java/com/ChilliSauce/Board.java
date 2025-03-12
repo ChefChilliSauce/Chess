@@ -5,19 +5,22 @@ import java.util.List;
 
 public class Board {
     private final int[] board;
-    private boolean isWhiteTurn = true;  // ✅ Track current turn
+    private boolean isWhiteTurn = true;
     private Integer lastMoveFrom = null;
     private Integer lastMoveTo = null;
-    private Integer enPassantTarget = null; // ✅ Track En Passant target square
+    private Integer enPassantTarget = null;
 
-    private boolean whiteKingMoved = false, blackKingMoved = false;
-    private boolean whiteKingsideRookMoved = false, whiteQueensideRookMoved = false;
-    private boolean blackKingsideRookMoved = false, blackQueensideRookMoved = false;
+    private boolean whiteKingMoved = false;
+    private boolean blackKingMoved = false;
+    private boolean whiteKingsideRookMoved = false;
+    private boolean whiteQueensideRookMoved = false;
+    private boolean blackKingsideRookMoved = false;
+    private boolean blackQueensideRookMoved = false;
 
     final String startFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
     public Board() {
-        board = new int[64]; // 1D board representation
+        board = new int[64];
         loadFEN();
     }
 
@@ -28,7 +31,6 @@ public class Board {
         for (int rank = 8; rank >= 1; rank--) {
             String row = rows[8 - rank];
             int fileIndex = 0;
-
             for (char ch : row.toCharArray()) {
                 if (Character.isDigit(ch)) {
                     fileIndex += Character.getNumericValue(ch);
@@ -43,10 +45,8 @@ public class Board {
                         case 'p' -> PieceConstants.PAWN;
                         default -> PieceConstants.NONE;
                     };
-
                     int index = getIndex((char) ('a' + fileIndex), rank);
                     setPiece(index, piece | color);
-
                     fileIndex++;
                 }
             }
@@ -63,105 +63,53 @@ public class Board {
         board[index] = piece;
     }
 
+    // Returns legal moves for a piece (only for the side whose turn it is).
     public List<Integer> getValidMoves(int index) {
         int piece = getPiece(index);
         if (piece == PieceConstants.NONE) return new ArrayList<>();
-
-        boolean isWhitePiece = (piece & PieceConstants.WHITE) != 0;
-
-        // ✅ Ensure correct player's turn
-        if (isWhitePiece != isWhiteTurn) {
-            System.out.println("❌ Not your turn! It's " + (isWhiteTurn ? "White's" : "Black's") + " turn.");
-            return new ArrayList<>();
-        }
+        boolean isWhite = (piece & PieceConstants.WHITE) != 0;
+        if (isWhite != isWhiteTurn) return new ArrayList<>();
 
         List<Integer> validMoves = new ArrayList<>();
-
-        switch (piece & 7) { // Mask to get piece type
-            case PieceConstants.PAWN -> validMoves = ValidPawnMoves.getValidMoves(this, index, isWhitePiece);
-            case PieceConstants.KNIGHT -> validMoves = ValidKnightMoves.getValidMoves(this, index, isWhitePiece);
-            case PieceConstants.BISHOP -> validMoves = ValidBishopMoves.getValidMoves(this, index, isWhitePiece);
-            case PieceConstants.ROOK -> validMoves = ValidRookMoves.getValidMoves(this, index, isWhitePiece);
-            case PieceConstants.QUEEN -> validMoves = ValidQueenMoves.getValidMoves(this, index, isWhitePiece);
-            case PieceConstants.KING -> validMoves = ValidKingMoves.getValidMoves(this, index, isWhitePiece);
+        switch (piece & 7) {
+            case PieceConstants.PAWN -> validMoves = ValidPawnMoves.getValidMoves(this, index, isWhite);
+            case PieceConstants.KNIGHT -> validMoves = ValidKnightMoves.getValidMoves(this, index, isWhite);
+            case PieceConstants.BISHOP -> validMoves = ValidBishopMoves.getValidMoves(this, index, isWhite);
+            case PieceConstants.ROOK -> validMoves = ValidRookMoves.getValidMoves(this, index, isWhite);
+            case PieceConstants.QUEEN -> validMoves = ValidQueenMoves.getValidMoves(this, index, isWhite);
+            case PieceConstants.KING -> validMoves = ValidKingMoves.getValidMoves(this, index, isWhite);
         }
-
         return validMoves;
     }
 
-    public boolean makeMove(int fromIndex, int toIndex) {
-        int piece = getPiece(fromIndex);
-        if (piece == PieceConstants.NONE) return false;
-
-        List<Integer> validMoves = getValidMoves(fromIndex);
-        if (!validMoves.contains(toIndex)) {
-            System.out.println("❌ Invalid move!");
-            return false;
-        }
-
-        int targetPiece = getPiece(toIndex);
-        boolean isCapture = targetPiece != PieceConstants.NONE;
+    // New method: returns the squares attacked by a piece regardless of turn.
+    public List<Integer> getAttackSquares(int index) {
+        int piece = getPiece(index);
+        if (piece == PieceConstants.NONE) return new ArrayList<>();
         boolean isWhite = (piece & PieceConstants.WHITE) != 0;
-
-        // ✅ Handle Castling Logic
-        if ((piece & 7) == PieceConstants.KING) {
-            if (toIndex == fromIndex + 2) { // Kingside Castling
-                if (!hasKingMoved(isWhite) && !hasRookMoved(fromIndex + 3)) {
-                    setPiece(fromIndex + 1, getPiece(fromIndex + 3)); // Move Rook to f1/f8
-                    setPiece(fromIndex + 3, PieceConstants.NONE);
-                    SoundManager.playCastlingSound();
-                }
-            } else if (toIndex == fromIndex - 2) { // Queenside Castling
-                if (!hasKingMoved(isWhite) && !hasRookMoved(fromIndex - 4)) {
-                    setPiece(fromIndex - 1, getPiece(fromIndex - 4)); // Move Rook to d1/d8
-                    setPiece(fromIndex - 4, PieceConstants.NONE);
-                    SoundManager.playCastlingSound();
-                }
-            }
+        List<Integer> attackSquares = new ArrayList<>();
+        switch (piece & 7) {
+            case PieceConstants.PAWN -> attackSquares = ValidPawnMoves.getAttackSquares(this, index, isWhite);
+            case PieceConstants.KNIGHT -> attackSquares = ValidKnightMoves.getValidMoves(this, index, isWhite); // knight moves = attack squares
+            case PieceConstants.BISHOP -> attackSquares = ValidBishopMoves.getValidMoves(this, index, isWhite);
+            case PieceConstants.ROOK -> attackSquares = ValidRookMoves.getValidMoves(this, index, isWhite);
+            case PieceConstants.QUEEN -> attackSquares = ValidQueenMoves.getValidMoves(this, index, isWhite);
+            case PieceConstants.KING -> attackSquares = ValidKingMoves.getAttackSquares(this, index, isWhite);
         }
+        return attackSquares;
+    }
 
-        // ✅ En Passant Capture Logic
-        if (enPassantTarget != null && toIndex == enPassantTarget) {
-            int capturedPawnIndex = isWhite ? toIndex - 8 : toIndex + 8;
-            setPiece(capturedPawnIndex, PieceConstants.NONE); // ✅ Remove bypassed pawn
-            isCapture = true;
+    // Uses the attack squares to decide if a square is under threat.
+    public boolean isSquareUnderAttack(int index, boolean byWhite) {
+        for (int i = 0; i < 64; i++) {
+            int piece = getPiece(i);
+            if (piece == PieceConstants.NONE) continue;
+            boolean isWhitePiece = (piece & PieceConstants.WHITE) != 0;
+            if (isWhitePiece != byWhite) continue;
+            List<Integer> attackSquares = getAttackSquares(i);
+            if (attackSquares.contains(index)) return true;
         }
-
-        // ✅ Handle Pawn Promotion
-        int promotionRank = isWhite ? 7 : 0;
-        boolean isPromotion = (toIndex / 8) == promotionRank && (piece & 7) == PieceConstants.PAWN;
-
-        if (isPromotion) {
-            setPiece(toIndex, PieceConstants.QUEEN | (isWhite ? PieceConstants.WHITE : PieceConstants.BLACK));
-            SoundManager.playPromotionSound(); // ✅ Play promotion sound AFTER selection
-        } else {
-            setPiece(toIndex, piece);
-        }
-
-        setPiece(fromIndex, PieceConstants.NONE);
-
-        // ✅ Store last move (for En Passant)
-        lastMoveFrom = fromIndex;
-        lastMoveTo = toIndex;
-
-        // ✅ Reset En Passant target unless a pawn moves two squares
-        enPassantTarget = null;
-        if ((piece & 7) == PieceConstants.PAWN && Math.abs(fromIndex - toIndex) == 16) {
-            enPassantTarget = (fromIndex + toIndex) / 2;
-        }
-
-        // ✅ Play the correct sound
-        if (isCapture) {
-            SoundManager.playCaptureSound();
-        } else {
-            SoundManager.playMoveSound();
-        }
-
-        // ✅ Switch turn after a valid move
-        isWhiteTurn = !isWhiteTurn;
-        System.out.println("✅ Turn switched to: " + (isWhiteTurn ? "White" : "Black"));
-
-        return true;
+        return false;
     }
 
     public boolean hasKingMoved(boolean isWhite) {
@@ -177,6 +125,179 @@ public class Board {
             default -> true;
         };
     }
+
+    public boolean makeMove(int fromIndex, int toIndex, ChessGUI gui) {
+        int piece = getPiece(fromIndex);
+        if (piece == PieceConstants.NONE) return false;
+
+        // 1) Check if this move is in the valid moves list
+        List<Integer> validMoves = getValidMoves(fromIndex);
+        if (!validMoves.contains(toIndex)) {
+            System.out.println("❌ Invalid move!");
+            return false;
+        }
+
+        int targetPiece = getPiece(toIndex);
+        boolean isCapture = (targetPiece != PieceConstants.NONE);
+        boolean isWhite = ((piece & PieceConstants.WHITE) != 0);
+
+        // 2) Check for castling (king moves 2 squares)
+        if ((piece & 7) == PieceConstants.KING && Math.abs(fromIndex - toIndex) == 2) {
+            // Has the king already moved?
+            if (isWhite ? whiteKingMoved : blackKingMoved) {
+                System.out.println("❌ Castling not allowed! King has already moved.");
+                return false;
+            }
+
+            // Determine if it’s kingside or queenside
+            int rookFrom, rookTo;
+            if (toIndex == (isWhite ? 6 : 62)) {
+                // Kingside
+                rookFrom = isWhite ? 7 : 63;
+                rookTo   = isWhite ? 5 : 61;
+            } else {
+                // Queenside
+                rookFrom = isWhite ? 0 : 56;
+                rookTo   = isWhite ? 3 : 59;
+            }
+
+            // Has the rook moved?
+            if ((rookFrom == 7 && whiteKingsideRookMoved) ||
+                    (rookFrom == 0 && whiteQueensideRookMoved) ||
+                    (rookFrom == 63 && blackKingsideRookMoved) ||
+                    (rookFrom == 56 && blackQueensideRookMoved)) {
+                System.out.println("❌ Castling not allowed! Rook has already moved.");
+                return false;
+            }
+
+            // Is there actually a rook of the correct color on rookFrom?
+            int expectedRook = PieceConstants.ROOK | (isWhite ? PieceConstants.WHITE : PieceConstants.BLACK);
+            int actualRook   = getPiece(rookFrom);
+            if (actualRook != expectedRook) {
+                System.out.println("❌ Castling not allowed! Rook missing or incorrect.");
+                return false;
+            }
+
+            // Make sure squares in between are empty
+            if (isWhite) {
+                if (toIndex == 6) { // White kingside: f1(5), g1(6)
+                    if (getPiece(5) != PieceConstants.NONE || getPiece(6) != PieceConstants.NONE) {
+                        System.out.println("❌ Castling not allowed! Pieces in between.");
+                        return false;
+                    }
+                } else {            // White queenside: b1(1), c1(2), d1(3)
+                    if (getPiece(1) != PieceConstants.NONE ||
+                            getPiece(2) != PieceConstants.NONE ||
+                            getPiece(3) != PieceConstants.NONE) {
+                        System.out.println("❌ Castling not allowed! Pieces in between.");
+                        return false;
+                    }
+                }
+            } else {
+                if (toIndex == 62) { // Black kingside: f8(61), g8(62)
+                    if (getPiece(61) != PieceConstants.NONE || getPiece(62) != PieceConstants.NONE) {
+                        System.out.println("❌ Castling not allowed! Pieces in between.");
+                        return false;
+                    }
+                } else {             // Black queenside: b8(57), c8(58), d8(59)
+                    if (getPiece(57) != PieceConstants.NONE ||
+                            getPiece(58) != PieceConstants.NONE ||
+                            getPiece(59) != PieceConstants.NONE) {
+                        System.out.println("❌ Castling not allowed! Pieces in between.");
+                        return false;
+                    }
+                }
+            }
+
+            // Check that the king is not in check and does not pass through or land on attacked squares
+            int middleSquare = (fromIndex + toIndex) / 2;
+            if (isSquareUnderAttack(fromIndex, !isWhite) ||
+                    isSquareUnderAttack(middleSquare, !isWhite) ||
+                    isSquareUnderAttack(toIndex, !isWhite)) {
+                System.out.println("❌ Castling not allowed! King passes through or lands on an attacked square.");
+                return false;
+            }
+
+            // Perform the castling move
+            setPiece(rookTo, actualRook);
+            setPiece(rookFrom, PieceConstants.NONE);
+            setPiece(toIndex, piece);
+            setPiece(fromIndex, PieceConstants.NONE);
+
+            // Mark king and rook as moved
+            if (isWhite) {
+                whiteKingMoved = true;
+                if (rookFrom == 7)  whiteKingsideRookMoved = true;
+                else if (rookFrom == 0) whiteQueensideRookMoved = true;
+            } else {
+                blackKingMoved = true;
+                if (rookFrom == 63) blackKingsideRookMoved = true;
+                else if (rookFrom == 56) blackQueensideRookMoved = true;
+            }
+
+            SoundManager.playCastlingSound();
+            gui.repaintBoard();
+            isWhiteTurn = !isWhiteTurn;
+            return true;
+        }
+
+        // 3) En Passant check: If a pawn lands on the enPassantTarget, it's an en passant capture
+        Integer epTarget = getEnPassantTarget();  // can be null
+        boolean isEnPassant = false;
+        if ((piece & 7) == PieceConstants.PAWN && epTarget != null && epTarget == toIndex) {
+            isEnPassant = true;
+        }
+
+        // 4) Normal move (non-castling)
+        setPiece(toIndex, piece);
+        setPiece(fromIndex, PieceConstants.NONE);
+
+        // If en passant, remove the captured pawn
+        if (isEnPassant) {
+            int capturedPawnIndex = isWhite ? (toIndex - 8) : (toIndex + 8);
+            setPiece(capturedPawnIndex, PieceConstants.NONE);
+            isCapture = true; // so we can play the capture sound
+        }
+
+        // If the king or a rook moves normally, update the corresponding moved flags
+        if ((piece & 7) == PieceConstants.KING) {
+            if (isWhite) whiteKingMoved = true;
+            else blackKingMoved = true;
+        } else if ((piece & 7) == PieceConstants.ROOK) {
+            switch (fromIndex) {
+                case 7  -> whiteKingsideRookMoved = true;
+                case 0  -> whiteQueensideRookMoved = true;
+                case 63 -> blackKingsideRookMoved = true;
+                case 56 -> blackQueensideRookMoved = true;
+            }
+        }
+
+        // 5) Pawn Promotion
+        int promotionRank = isWhite ? 7 : 0;
+        boolean isPromotion = ((piece & 7) == PieceConstants.PAWN) && (toIndex / 8 == promotionRank);
+        if (isPromotion) {
+            //setPiece(toIndex, PieceConstants.QUEEN | (isWhite ? PieceConstants.WHITE : PieceConstants.BLACK));
+            // e.g. SoundManager.playPromotionSound();
+        } else if (isCapture) {
+            SoundManager.playCaptureSound();
+        } else {
+            SoundManager.playMoveSound();
+        }
+
+        // 6) Update last-move info, handle new enPassant target if a pawn moved 2 squares
+        lastMoveFrom = fromIndex;
+        lastMoveTo = toIndex;
+        enPassantTarget = null;
+        if (((piece & 7) == PieceConstants.PAWN) && Math.abs(fromIndex - toIndex) == 16) {
+            enPassantTarget = (fromIndex + toIndex) / 2;
+        }
+
+        isWhiteTurn = !isWhiteTurn;
+        gui.repaintBoard();
+        return true;
+    }
+
+
 
     public boolean isWhiteTurn() {
         return isWhiteTurn;
