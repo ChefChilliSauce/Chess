@@ -180,11 +180,14 @@ public class Board {
     // ---------------------------------------------------------
     // 4) Make Move (includes castling, en passant, promotion)
     // ---------------------------------------------------------
+    /**
+     * Executes a move from the given fromIndex to toIndex.
+     * Also calls gui.onPieceCaptured(capturedPiece, capturingSideIsWhite) if a capture occurs.
+     */
     public boolean makeMove(int fromIndex, int toIndex, AlternateChessGUI gui) {
         int piece = getPiece(fromIndex);
         if (piece == PieceConstants.NONE) return false;
 
-        // Check if the move is in the valid moves list
         List<Integer> validMoves = getValidMoves(fromIndex);
         if (!validMoves.contains(toIndex)) {
             System.out.println("❌ Invalid move!");
@@ -195,29 +198,25 @@ public class Board {
         boolean isCapture = (targetPiece != PieceConstants.NONE);
         boolean isWhite = ((piece & PieceConstants.WHITE) != 0);
 
-        // Reset lastCapturedPiece each time we start a new move
+        // Reset lastCapturedPiece at the start of a move.
         lastCapturedPiece = PieceConstants.NONE;
 
-        // Check if castling (king moves 2 squares)
+        // ----------------------
+        // Handle Castling
+        // ----------------------
         if ((piece & 7) == PieceConstants.KING && Math.abs(fromIndex - toIndex) == 2) {
-            // Has the king moved?
             if (isWhite ? whiteKingMoved : blackKingMoved) {
                 System.out.println("❌ Castling not allowed! King has already moved.");
                 return false;
             }
-
             int rookFrom, rookTo;
-            if (toIndex == (isWhite ? 6 : 62)) {
-                // Kingside
+            if (toIndex == (isWhite ? 6 : 62)) { // Kingside
                 rookFrom = isWhite ? 7 : 63;
                 rookTo = isWhite ? 5 : 61;
-            } else {
-                // Queenside
+            } else { // Queenside
                 rookFrom = isWhite ? 0 : 56;
                 rookTo = isWhite ? 3 : 59;
             }
-
-            // Check if the rook has moved
             if ((rookFrom == 7 && whiteKingsideRookMoved) ||
                     (rookFrom == 0 && whiteQueensideRookMoved) ||
                     (rookFrom == 63 && blackKingsideRookMoved) ||
@@ -225,23 +224,19 @@ public class Board {
                 System.out.println("❌ Castling not allowed! Rook has already moved.");
                 return false;
             }
-
-            // Ensure there's a correct rook there
             int expectedRook = PieceConstants.ROOK | (isWhite ? PieceConstants.WHITE : PieceConstants.BLACK);
             int actualRook = getPiece(rookFrom);
             if (actualRook != expectedRook) {
                 System.out.println("❌ Castling not allowed! Rook missing or incorrect.");
                 return false;
             }
-
-            // Check squares in between are empty
             if (isWhite) {
-                if (toIndex == 6) { // White kingside: f1(5), g1(6)
+                if (toIndex == 6) {
                     if (getPiece(5) != PieceConstants.NONE || getPiece(6) != PieceConstants.NONE) {
                         System.out.println("❌ Castling not allowed! Pieces in between.");
                         return false;
                     }
-                } else {            // White queenside: b1(1), c1(2), d1(3)
+                } else {
                     if (getPiece(1) != PieceConstants.NONE ||
                             getPiece(2) != PieceConstants.NONE ||
                             getPiece(3) != PieceConstants.NONE) {
@@ -250,12 +245,12 @@ public class Board {
                     }
                 }
             } else {
-                if (toIndex == 62) { // Black kingside: f8(61), g8(62)
+                if (toIndex == 62) {
                     if (getPiece(61) != PieceConstants.NONE || getPiece(62) != PieceConstants.NONE) {
                         System.out.println("❌ Castling not allowed! Pieces in between.");
                         return false;
                     }
-                } else {             // Black queenside: b8(57), c8(58), d8(59)
+                } else {
                     if (getPiece(57) != PieceConstants.NONE ||
                             getPiece(58) != PieceConstants.NONE ||
                             getPiece(59) != PieceConstants.NONE) {
@@ -264,8 +259,6 @@ public class Board {
                     }
                 }
             }
-
-            // Check that the king is not in check, and doesn't move through or land on an attacked square
             int middleSquare = (fromIndex + toIndex) / 2;
             if (isSquareUnderAttack(fromIndex, !isWhite) ||
                     isSquareUnderAttack(middleSquare, !isWhite) ||
@@ -273,14 +266,11 @@ public class Board {
                 System.out.println("❌ Castling not allowed! King passes through or lands on an attacked square.");
                 return false;
             }
-
-            // Perform the castling move
+            // Perform castling move
             setPiece(rookTo, actualRook);
             setPiece(rookFrom, PieceConstants.NONE);
             setPiece(toIndex, piece);
             setPiece(fromIndex, PieceConstants.NONE);
-
-            // Mark king/rook as moved
             if (isWhite) {
                 whiteKingMoved = true;
                 if (rookFrom == 7) whiteKingsideRookMoved = true;
@@ -290,75 +280,75 @@ public class Board {
                 if (rookFrom == 63) blackKingsideRookMoved = true;
                 else if (rookFrom == 56) blackQueensideRookMoved = true;
             }
-
             SoundManager.playCastlingSound();
             gui.repaintBoard();
             isWhiteTurn = !isWhiteTurn;
             return true;
         }
 
-        // Check en passant
-        Integer epTarget = getEnPassantTarget();  // could be null
+        // ----------------------
+        // Check for en passant
+        // ----------------------
+        Integer epTarget = getEnPassantTarget();
         boolean isEnPassant = false;
         if ((piece & 7) == PieceConstants.PAWN && epTarget != null && epTarget == toIndex) {
-            // Pawn lands on the enPassantTarget => en passant capture
             isEnPassant = true;
         }
 
-        // Normal move (non-castling)
+        // Execute normal move
         setPiece(toIndex, piece);
         setPiece(fromIndex, PieceConstants.NONE);
 
-        // If en passant, remove the captured pawn behind the new square
+        // Handle en passant capture
         if (isEnPassant) {
             int capturedPawnIndex = isWhite ? (toIndex - 8) : (toIndex + 8);
             int epPawn = getPiece(capturedPawnIndex);
-            lastCapturedPiece = epPawn; // store it so the GUI knows we captured
+            lastCapturedPiece = epPawn;
             setPiece(capturedPawnIndex, PieceConstants.NONE);
             isCapture = true;
         }
 
-        // If it was a normal capture, store the captured piece
+        // If a normal capture occurred, store the captured piece
         if (!isEnPassant && isCapture) {
             lastCapturedPiece = targetPiece;
         }
 
-        // If king or rook moves normally, mark them as moved
+        // Invoke the capture event if a piece was captured.
+        if (isCapture && lastCapturedPiece != PieceConstants.NONE) {
+            gui.onPieceCaptured(lastCapturedPiece, isWhite);
+        }
+
+        // Mark king/rook as having moved if applicable
         if ((piece & 7) == PieceConstants.KING) {
             if (isWhite) whiteKingMoved = true;
             else blackKingMoved = true;
         } else if ((piece & 7) == PieceConstants.ROOK) {
             switch (fromIndex) {
-                case 7  -> whiteKingsideRookMoved = true;
-                case 0  -> whiteQueensideRookMoved = true;
+                case 7 -> whiteKingsideRookMoved = true;
+                case 0 -> whiteQueensideRookMoved = true;
                 case 63 -> blackKingsideRookMoved = true;
                 case 56 -> blackQueensideRookMoved = true;
             }
         }
 
-        // Pawn promotion
+        // Pawn promotion check (GUI will handle promotion popup)
         int promotionRank = isWhite ? 7 : 0;
         boolean isPromotion = ((piece & 7) == PieceConstants.PAWN) && ((toIndex / 8) == promotionRank);
         if (isPromotion) {
-            // We do NOT auto-queen here, so the GUI can show the popup
-            // If you wanted to auto-queen, you'd do:
-            // setPiece(toIndex, PieceConstants.QUEEN | (isWhite ? PieceConstants.WHITE : PieceConstants.BLACK));
+            // Do nothing here to let GUI handle promotion popup
         } else if (isCapture) {
             SoundManager.playCaptureSound();
         } else {
             SoundManager.playMoveSound();
         }
 
-        // Update last move info
+        // Update last move info and en passant target reset/increment
         lastMoveFrom = fromIndex;
         lastMoveTo = toIndex;
-
-        // Set or reset enPassantTarget
         enPassantTarget = null;
         if (((piece & 7) == PieceConstants.PAWN) && Math.abs(fromIndex - toIndex) == 16) {
             enPassantTarget = (fromIndex + toIndex) / 2;
         }
-
         isWhiteTurn = !isWhiteTurn;
         gui.repaintBoard();
         return true;
