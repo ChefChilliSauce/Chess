@@ -180,7 +180,7 @@ public class Board {
     // ---------------------------------------------------------
     // 4) Make Move (includes castling, en passant, promotion)
     // ---------------------------------------------------------
-    public boolean makeMove(int fromIndex, int toIndex, ChessGUI gui) {
+    public boolean makeMove(int fromIndex, int toIndex, AlternateChessGUI gui) {
         int piece = getPiece(fromIndex);
         if (piece == PieceConstants.NONE) return false;
 
@@ -369,10 +369,10 @@ public class Board {
 
     public boolean hasRookMoved(int rookIndex) {
         return switch (rookIndex) {
-            case 56 -> whiteQueensideRookMoved;
-            case 63 -> whiteKingsideRookMoved;
-            case 0 -> blackQueensideRookMoved;
-            case 7 -> blackKingsideRookMoved;
+            case 0 -> whiteQueensideRookMoved;   // white queenside rook at a1 (index 0)
+            case 7 -> whiteKingsideRookMoved;      // white kingside rook at h1 (index 7)
+            case 56 -> blackQueensideRookMoved;     // black queenside rook at a8 (index 56)
+            case 63 -> blackKingsideRookMoved;      // black kingside rook at h8 (index 63)
             default -> true;
         };
     }

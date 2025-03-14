@@ -95,6 +95,8 @@ public class GameTermination {
         this.blackTimeout = timeout;
     }
 
+
+
     /**
      * Call this whenever a new move is made:
      * - If the move was a capture or a pawn move, reset halfmove clock.

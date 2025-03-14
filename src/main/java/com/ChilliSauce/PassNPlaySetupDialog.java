@@ -77,7 +77,7 @@ public class PassNPlaySetupDialog extends JDialog {
                 }
             }
             boolean boardFlipEnabled = boardFlipCheck.isSelected();
-            SwingUtilities.invokeLater(() -> new ChessGUI(new Board(), player1, player2, playerOneColor, playerTwoColor, boardFlipEnabled));
+            SwingUtilities.invokeLater(() -> new AlternateChessGUI(new Board(), player1, player2, playerOneColor, playerTwoColor, boardFlipEnabled));
             dispose();
         });
 
