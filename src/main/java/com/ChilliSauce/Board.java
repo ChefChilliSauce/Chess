@@ -29,6 +29,22 @@ public class Board {
         loadFEN();
     }
 
+    // Copy constructor for simulating moves.
+    public Board(Board original) {
+        this.board = original.board.clone();
+        this.isWhiteTurn = original.isWhiteTurn;
+        this.lastMoveFrom = original.lastMoveFrom;
+        this.lastMoveTo = original.lastMoveTo;
+        this.enPassantTarget = original.enPassantTarget;
+        this.lastCapturedPiece = original.lastCapturedPiece;
+        this.whiteKingMoved = original.whiteKingMoved;
+        this.blackKingMoved = original.blackKingMoved;
+        this.whiteKingsideRookMoved = original.whiteKingsideRookMoved;
+        this.whiteQueensideRookMoved = original.whiteQueensideRookMoved;
+        this.blackKingsideRookMoved = original.blackKingsideRookMoved;
+        this.blackQueensideRookMoved = original.blackQueensideRookMoved;
+    }
+
     // ---------------------------------------------------------
     // 1) FEN loading (basic)
     // ---------------------------------------------------------
@@ -97,15 +113,14 @@ public class Board {
         return enPassantTarget;
     }
 
-    // **Getter for the last captured piece** so the GUI can check if we did a capture
+    // Getter for the last captured piece so the GUI can check if a capture occurred.
     public int getLastMoveCapturedPiece() {
         return lastCapturedPiece;
     }
 
     // ---------------------------------------------------------
-    // 3) Generating valid moves
+    // 3) Generating valid moves (filtering out moves that leave king in check)
     // ---------------------------------------------------------
-    // (This calls out to your Valid*Moves classes)
     public List<Integer> getValidMoves(int index) {
         int piece = getPiece(index);
         if (piece == PieceConstants.NONE) return new ArrayList<>();
@@ -116,28 +131,58 @@ public class Board {
             return new ArrayList<>();
         }
 
-        List<Integer> validMoves = new ArrayList<>();
+        List<Integer> moves;
         switch (piece & 7) {
-            case PieceConstants.PAWN -> validMoves = ValidPawnMoves.getValidMoves(this, index, isWhite);
-            case PieceConstants.KNIGHT -> validMoves = ValidKnightMoves.getValidMoves(this, index, isWhite);
-            case PieceConstants.BISHOP -> validMoves = ValidBishopMoves.getValidMoves(this, index, isWhite);
-            case PieceConstants.ROOK -> validMoves = ValidRookMoves.getValidMoves(this, index, isWhite);
-            case PieceConstants.QUEEN -> validMoves = ValidQueenMoves.getValidMoves(this, index, isWhite);
-            case PieceConstants.KING -> validMoves = ValidKingMoves.getValidMoves(this, index, isWhite);
+            case PieceConstants.PAWN -> moves = ValidPawnMoves.getValidMoves(this, index, isWhite);
+            case PieceConstants.KNIGHT -> moves = ValidKnightMoves.getValidMoves(this, index, isWhite);
+            case PieceConstants.BISHOP -> moves = ValidBishopMoves.getValidMoves(this, index, isWhite);
+            case PieceConstants.ROOK -> moves = ValidRookMoves.getValidMoves(this, index, isWhite);
+            case PieceConstants.QUEEN -> moves = ValidQueenMoves.getValidMoves(this, index, isWhite);
+            case PieceConstants.KING -> moves = ValidKingMoves.getValidMoves(this, index, isWhite);
+            default -> moves = new ArrayList<>();
         }
-        return validMoves;
+
+        // Filter out moves that leave the king in check.
+        List<Integer> legalMoves = new ArrayList<>();
+        for (Integer move : moves) {
+            Board simulation = new Board(this);
+            simulation.setPiece(move, simulation.getPiece(index));
+            simulation.setPiece(index, PieceConstants.NONE);
+            if (!simulation.isKingInCheck(isWhite)) {
+                legalMoves.add(move);
+            }
+        }
+        return legalMoves;
     }
 
-    // For check detection
+    // Helper method: find the king's position for a given side.
+    private int findKing(boolean isWhite) {
+        for (int i = 0; i < 64; i++) {
+            int p = getPiece(i);
+            if (p != PieceConstants.NONE && (p & 7) == PieceConstants.KING &&
+                    (((p & PieceConstants.WHITE) != 0) == isWhite)) {
+                return i;
+            }
+        }
+        return -1; // Should never happen.
+    }
+
+    // Helper method: returns true if the king for the given side is in check.
+    private boolean isKingInCheck(boolean isWhite) {
+        int kingIndex = findKing(isWhite);
+        if (kingIndex == -1) return true; // Treat missing king as in check.
+        return isSquareUnderAttack(kingIndex, !isWhite);
+    }
+
+    // ---------------------------------------------------------
+    // 4) Check if a square is under attack and get attack squares
+    // ---------------------------------------------------------
     public boolean isSquareUnderAttack(int index, boolean byWhite) {
         for (int i = 0; i < 64; i++) {
-            int piece = getPiece(i);
-            if (piece == PieceConstants.NONE) continue;
-
-            boolean isWhitePiece = ((piece & PieceConstants.WHITE) != 0);
+            int p = getPiece(i);
+            if (p == PieceConstants.NONE) continue;
+            boolean isWhitePiece = ((p & PieceConstants.WHITE) != 0);
             if (isWhitePiece != byWhite) continue;
-
-            // Attack squares ignoring turn
             List<Integer> attackSquares = getAttackSquares(i);
             if (attackSquares.contains(index)) {
                 return true;
@@ -146,14 +191,11 @@ public class Board {
         return false;
     }
 
-    // "Attack squares" version that doesn't check whose turn it is
-    // We rely on the "getAttackSquares" methods in each piece class
     public List<Integer> getAttackSquares(int index) {
         int piece = getPiece(index);
         if (piece == PieceConstants.NONE) return new ArrayList<>();
         boolean isWhite = ((piece & PieceConstants.WHITE) != 0);
 
-        // For each piece type, call a separate "attack squares" method
         switch (piece & 7) {
             case PieceConstants.PAWN -> {
                 return ValidPawnMoves.getAttackSquares(this, index, isWhite);
@@ -178,7 +220,7 @@ public class Board {
     }
 
     // ---------------------------------------------------------
-    // 4) Make Move (includes castling, en passant, promotion)
+    // 5) Make Move (includes castling, en passant, promotion)
     // ---------------------------------------------------------
     /**
      * Executes a move from the given fromIndex to toIndex.
@@ -195,6 +237,12 @@ public class Board {
         }
 
         int targetPiece = getPiece(toIndex);
+        // 1. Prevent capturing the king.
+        if (targetPiece != PieceConstants.NONE && (targetPiece & 7) == PieceConstants.KING) {
+            System.out.println("❌ Cannot capture the king!");
+            return false;
+        }
+
         boolean isCapture = (targetPiece != PieceConstants.NONE);
         boolean isWhite = ((piece & PieceConstants.WHITE) != 0);
 
@@ -313,7 +361,6 @@ public class Board {
             lastCapturedPiece = targetPiece;
         }
 
-
         // Mark king/rook as having moved if applicable
         if ((piece & 7) == PieceConstants.KING) {
             if (isWhite) whiteKingMoved = true;
@@ -324,6 +371,7 @@ public class Board {
                 case 0 -> whiteQueensideRookMoved = true;
                 case 63 -> blackKingsideRookMoved = true;
                 case 56 -> blackQueensideRookMoved = true;
+                default -> { }
             }
         }
 
@@ -349,31 +397,43 @@ public class Board {
         gui.repaintBoard();
         return true;
     }
+
+    // ---------------------------------------------------------
+    // 6) Checkmate detection
+    // ---------------------------------------------------------
+    public boolean isCheckmate(boolean isWhite) {
+        // If the king is not in check, it's not checkmate.
+        if (!isKingInCheck(isWhite)) return false;
+
+        // For every piece belonging to the side, if at least one legal move exists, it's not checkmate.
+        for (int i = 0; i < 64; i++) {
+            int p = getPiece(i);
+            if (p == PieceConstants.NONE) continue;
+            boolean pieceIsWhite = ((p & PieceConstants.WHITE) != 0);
+            if (pieceIsWhite != isWhite) continue;
+
+            List<Integer> moves = getValidMoves(i);
+            if (!moves.isEmpty()) {
+                return false;
+            }
+        }
+        return true; // King is in check and no legal moves exist.
+    }
+
+    // ---------------------------------------------------------
+    // 7) Methods for castling flags (for check detection and GUI)
+    // ---------------------------------------------------------
     public boolean hasKingMoved(boolean isWhite) {
         return isWhite ? whiteKingMoved : blackKingMoved;
     }
 
     public boolean hasRookMoved(int rookIndex) {
         return switch (rookIndex) {
-            case 0 -> whiteQueensideRookMoved;   // white queenside rook at a1 (index 0)
-            case 7 -> whiteKingsideRookMoved;      // white kingside rook at h1 (index 7)
-            case 56 -> blackQueensideRookMoved;     // black queenside rook at a8 (index 56)
-            case 63 -> blackKingsideRookMoved;      // black kingside rook at h8 (index 63)
+            case 0 -> whiteQueensideRookMoved;
+            case 7 -> whiteKingsideRookMoved;
+            case 56 -> blackQueensideRookMoved;
+            case 63 -> blackKingsideRookMoved;
             default -> true;
         };
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-

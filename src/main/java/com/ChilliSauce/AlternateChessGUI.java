@@ -43,7 +43,7 @@ public class AlternateChessGUI extends JFrame {
     private boolean isFullScreen = false;
     private Rectangle windowedBounds = null;
 
-    // Score fields (the score values are kept internally but are not displayed as a difference)
+    // Score fields
     private String blackPlayerName;
     private String whitePlayerName;
     private JLabel blackPlayerLabel, whitePlayerLabel;
@@ -142,18 +142,18 @@ public class AlternateChessGUI extends JFrame {
         // 3) Four Buttons on the left
         addButtons();
 
-        // 4) Player labels – display only the names (no score difference)
+        // 4) Player labels – display only the names.
+        // Black player's label is positioned just above the clock,
+        // White player's label is positioned just below the clock.
         blackPlayerLabel = new JLabel(blackPlayerName, SwingConstants.CENTER);
         blackPlayerLabel.setFont(new Font("Arial", Font.BOLD, 20));
         blackPlayerLabel.setForeground(Color.WHITE);
-        // Position just above the clock
         blackPlayerLabel.setBounds(CLOCK_X, CLOCK_Y - 35, CLOCK_W, 30);
         getContentPane().add(blackPlayerLabel);
 
         whitePlayerLabel = new JLabel(whitePlayerName, SwingConstants.CENTER);
         whitePlayerLabel.setFont(new Font("Arial", Font.BOLD, 20));
         whitePlayerLabel.setForeground(Color.WHITE);
-        // Position just below the clock
         whitePlayerLabel.setBounds(CLOCK_X, CLOCK_Y + CLOCK_H + 5, CLOCK_W, 30);
         getContentPane().add(whitePlayerLabel);
 
@@ -221,6 +221,8 @@ public class AlternateChessGUI extends JFrame {
                     isWhiteTurn = !isWhiteTurn;
 
                     repaintBoard();
+                    // Check for checkmate after a successful move.
+                    checkForCheckmate();
                 }
 
                 validMoves.clear();
@@ -246,12 +248,18 @@ public class AlternateChessGUI extends JFrame {
             if (whiteTime > 0) {
                 whiteTime--;
                 updateClockDisplay();
+                if (whiteTime == 0) {
+                    handleTimeLoss(true);
+                }
             }
         });
         blackTimer = new Timer(1000, e -> {
             if (blackTime > 0) {
                 blackTime--;
                 updateClockDisplay();
+                if (blackTime == 0) {
+                    handleTimeLoss(false);
+                }
             }
         });
         idleTimer = new Timer(20_000, e -> {
@@ -328,7 +336,7 @@ public class AlternateChessGUI extends JFrame {
     }
 
     /**
-     * Draw the chessboard squares + highlights
+     * Draw the chessboard squares + highlights.
      */
     private void drawBoard(Graphics g) {
         Graphics2D g2d = (Graphics2D) g;
@@ -439,7 +447,7 @@ public class AlternateChessGUI extends JFrame {
     }
 
     /**
-     * Toggle Fullscreen on/off
+     * Toggle Fullscreen on/off.
      */
     private void toggleFullScreen() {
         GraphicsDevice device = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice();
@@ -464,15 +472,13 @@ public class AlternateChessGUI extends JFrame {
     }
 
     /**
-     * Create the UI buttons (resign, fullscreen, plus 2 placeholders)
+     * Create the UI buttons (resign, fullscreen, plus 2 placeholders).
      */
     private void addButtons() {
         java.net.URL maximize = getClass().getResource("/assets/maximize.png");
         java.net.URL resign = getClass().getResource("/assets/resign.png");
-        java.net.URL minimize = getClass().getResource("/assets/minimize.png");
         java.net.URL draw = getClass().getResource("/assets/draw.png");
         java.net.URL engine = getClass().getResource("/assets/engine.png");
-
 
         // Resign button
         if (resign != null) {
@@ -521,7 +527,7 @@ public class AlternateChessGUI extends JFrame {
             System.err.println("maximize.png icon not found!");
         }
 
-        // In your addButtons() method or wherever you create the "Engine" button:
+        // Engine button (placeholder)
         if (engine != null) {
             ImageIcon icon = new ImageIcon(engine);
             Image scaled = icon.getImage().getScaledInstance(80, 40, Image.SCALE_AREA_AVERAGING);
@@ -530,8 +536,6 @@ public class AlternateChessGUI extends JFrame {
             engineButton.setToolTipText("Engine");
             styleButton(engineButton);
             engineButton.setBounds(200, 450, 80, 40);
-
-            // On click, show a simple "coming soon" popup
             engineButton.addActionListener(e -> {
                 JOptionPane.showMessageDialog(
                         this,
@@ -540,13 +544,10 @@ public class AlternateChessGUI extends JFrame {
                         JOptionPane.INFORMATION_MESSAGE
                 );
             });
-
             getContentPane().add(engineButton);
         } else {
             System.err.println("engine.png icon not found!");
         }
-
-
     }
 
     private void styleButton(JButton btn) {
@@ -556,126 +557,174 @@ public class AlternateChessGUI extends JFrame {
         btn.setForeground(Color.WHITE);
     }
 
-    private void handleDraw() {
-        // Mark the game as a draw in your GameTermination instance
-        termination.setDrawAgreed(true);
-
-        // Check the game state (it should come back as a DRAW).
-        GameTermination.GameResult result = termination.checkGameState(board);
-
-        // Stop the clocks if running
-        if (whiteTimer != null) whiteTimer.stop();
-        if (blackTimer != null) blackTimer.stop();
-
-        // Construct a message
-        String message = "The game is a draw!\nThank you for playing!";
-
-        // We'll present two buttons: "Rematch" and "Exit"
-        String[] options = { "Rematch", "Exit" };
-        int choice = JOptionPane.showOptionDialog(
-                this,
-                message,        // main text
-                "Game Over",    // dialog title
-                JOptionPane.YES_NO_OPTION,          // two options
-                JOptionPane.INFORMATION_MESSAGE,    // icon type
-                null,                                // no custom icon
-                options,                             // the button texts
-                options[0]                          // default button is "Rematch"
-        );
-
-        if (choice == JOptionPane.YES_OPTION) {
-            // User clicked "Rematch"
-            startNewGame();
-        } else {
-            // User clicked "Exit" or closed the dialog => exit program
-            System.exit(0);
-        }
-    }
-
-
+    /**
+     * Called when the user clicks the "Resign" button.
+     */
     private void handleResignation() {
-        // Mark the current side as resigned.
         if (isWhiteTurn) {
             termination.setWhiteResigned(true);
         } else {
             termination.setBlackResigned(true);
         }
-
-        // Check the game state (will reflect the resignation).
         GameTermination.GameResult result = termination.checkGameState(board);
 
-        // Stop the clocks if they are running.
-        if (whiteTimer != null) whiteTimer.stop();
-        if (blackTimer != null) blackTimer.stop();
+        // Stop the clocks
+        whiteTimer.stop();
+        blackTimer.stop();
 
-        // Figure out who resigned and who the winner is.
-        // isWhiteTurn => White resigned => Black wins, etc.
         String resigningPlayer = isWhiteTurn ? whitePlayerName : blackPlayerName;
-        String winningPlayer   = isWhiteTurn ? blackPlayerName : whitePlayerName;
+        String winningPlayer = isWhiteTurn ? blackPlayerName : whitePlayerName;
+        String message = String.format("%s resigned, %s wins!\nThank you for playing!", resigningPlayer, winningPlayer);
 
-        // Construct a message that includes who resigned and who wins.
-        // Also add "Thank you for playing!"
-        String message = String.format(
-                "%s resigned, %s wins!\nThank you for playing!",
-                resigningPlayer, winningPlayer
-        );
-
-        // We'll present two buttons: "Rematch" and "Exit".
-        // If the user closes the dialog or clicks "Exit", we'll exit the program.
         String[] options = { "Rematch", "Exit" };
         int choice = JOptionPane.showOptionDialog(
                 this,
-                message,        // main text
-                "Game Over",    // dialog title
-                JOptionPane.YES_NO_OPTION,          // two options
-                JOptionPane.INFORMATION_MESSAGE,    // icon type
-                null,                                // no custom icon
-                options,                             // the button texts
-                options[0]                          // default button is "Rematch"
+                message,
+                "Game Over",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.INFORMATION_MESSAGE,
+                null,
+                options,
+                options[0]
         );
 
         if (choice == JOptionPane.YES_OPTION) {
-            // User clicked "Rematch"
             startNewGame();
         } else {
-            // User clicked "Exit" or closed the dialog => exit program
             System.exit(0);
         }
     }
 
     /**
-     * Helper method to start a new, fresh game with the same names/colors.
-     * This can be done by:
-     *  - disposing the current window
-     *  - creating a new Board
-     *  - re-launching AlternateChessGUI with the same parameters
+     * Called when the user clicks the "Draw" button.
+     */
+    private void handleDraw() {
+        termination.setDrawAgreed(true);
+        GameTermination.GameResult result = termination.checkGameState(board);
+
+        whiteTimer.stop();
+        blackTimer.stop();
+
+        String message = "The game is a draw!\nThank you for playing!";
+        String[] options = { "Rematch", "Exit" };
+        int choice = JOptionPane.showOptionDialog(
+                this,
+                message,
+                "Game Over",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.INFORMATION_MESSAGE,
+                null,
+                options,
+                options[0]
+        );
+
+        if (choice == JOptionPane.YES_OPTION) {
+            startNewGame();
+        } else {
+            System.exit(0);
+        }
+    }
+
+    /**
+     * Check for checkmate. If the side to move is in checkmate, show a popup
+     * that indicates which player is checkmated and which player wins.
+     * Then offer options for Rematch or Exit.
+     */
+    private void checkForCheckmate() {
+        // isWhiteTurn now indicates the side to move.
+        if (board.isCheckmate(isWhiteTurn)) {
+            // The side whose turn it is is checkmated.
+            String losingPlayer = isWhiteTurn ? whitePlayerName : blackPlayerName;
+            String winningPlayer = isWhiteTurn ? blackPlayerName : whitePlayerName;
+            // Stop the clocks
+            whiteTimer.stop();
+            blackTimer.stop();
+            String message = String.format("%s is checkmated. %s wins the game.\nThank you for playing!", losingPlayer, winningPlayer);
+            String[] options = { "Rematch", "Exit" };
+            int choice = JOptionPane.showOptionDialog(
+                    this,
+                    message,
+                    "Game Over",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.INFORMATION_MESSAGE,
+                    null,
+                    options,
+                    options[0]
+            );
+
+            if (choice == JOptionPane.YES_OPTION) {
+                startNewGame();
+            } else {
+                System.exit(0);
+            }
+        }
+    }
+
+    /**
+     * Handle time loss: if a player's clock reaches zero, show a popup indicating that
+     * "<Player name> ran out of time. <Opponent> wins the game. Thank you for playing!"
+     * with options to Rematch or Exit.
+     *
+     * @param whiteTimeExpired true if white's time has expired, false if black's time has expired.
+     */
+    private void handleTimeLoss(boolean whiteTimeExpired) {
+        // Stop both clocks.
+        whiteTimer.stop();
+        blackTimer.stop();
+
+        String losingPlayer, winningPlayer;
+        if (whiteTimeExpired) {
+            losingPlayer = whitePlayerName;
+            winningPlayer = blackPlayerName;
+        } else {
+            losingPlayer = blackPlayerName;
+            winningPlayer = whitePlayerName;
+        }
+        String message = String.format("%s ran out of time. %s wins the game.\nThank you for playing!", losingPlayer, winningPlayer);
+        String[] options = { "Rematch", "Exit" };
+        int choice = JOptionPane.showOptionDialog(
+                this,
+                message,
+                "Game Over",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.INFORMATION_MESSAGE,
+                null,
+                options,
+                options[0]
+        );
+
+        if (choice == JOptionPane.YES_OPTION) {
+            startNewGame();
+        } else {
+            System.exit(0);
+        }
+    }
+
+    /**
+     * Start a new game (rematch) with the same player names and settings.
      */
     private void startNewGame() {
-        // Close current window
         dispose();
-
-        // Create a fresh Board
         Board newBoard = new Board();
-
-        // Re-launch the GUI with the same player info and colors
         SwingUtilities.invokeLater(() -> new AlternateChessGUI(
                 newBoard,
                 whitePlayerName,
                 blackPlayerName,
-                PieceConstants.WHITE,  // or reuse the old color assignments
+                PieceConstants.WHITE,
                 PieceConstants.BLACK,
-                true                   // or reuse boardFlipEnabled
+                true
         ));
     }
 
-
-    // Main method for local testing
+    /**
+     * Main method for local testing.
+     */
     public static void main(String[] args) {
         Board board = new Board();
         SwingUtilities.invokeLater(() -> new AlternateChessGUI(
                 board,
-                "Aditi",
-                "Abhinav",
+                "Snowy",
+                "Chilli",
                 PieceConstants.WHITE,
                 PieceConstants.BLACK,
                 true

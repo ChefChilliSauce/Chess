@@ -2,6 +2,7 @@ package com.ChilliSauce;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ActionEvent;
 
 public class Launcher extends JFrame {
 
@@ -22,16 +23,36 @@ public class Launcher extends JFrame {
         gbc.insets = new Insets(10, 10, 10, 10);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        gbc.gridx = 0; gbc.gridy = 0;
+        gbc.gridx = 0;
+        gbc.gridy = 0;
         add(passNPlayButton, gbc);
-        gbc.gridx = 0; gbc.gridy = 1;
+        gbc.gridx = 0;
+        gbc.gridy = 1;
         add(hostButton, gbc);
-        gbc.gridx = 0; gbc.gridy = 2;
+        gbc.gridx = 0;
+        gbc.gridy = 2;
         add(joinGameButton, gbc);
 
-        // When "Pass n Play" is clicked, show the PassNPlay setup dialog.
-        passNPlayButton.addActionListener(e -> {
-            new PassNPlaySetupDialog(this);
+        // When "Pass n Play" is clicked, ask for the names and start AlternateChessGUI.
+        passNPlayButton.addActionListener((ActionEvent e) -> {
+            String whiteName = JOptionPane.showInputDialog(this, "Enter White's name:");
+            if (whiteName == null || whiteName.trim().isEmpty()) {
+                JOptionPane.showMessageDialog(this, "White's name is required.", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            String blackName = JOptionPane.showInputDialog(this, "Enter Black's name:");
+            if (blackName == null || blackName.trim().isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Black's name is required.", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            // Launch AlternateChessGUI with the entered names.
+            SwingUtilities.invokeLater(() -> new AlternateChessGUI(
+                    new Board(),
+                    whiteName.trim(),
+                    blackName.trim(),
+                    PieceConstants.WHITE,
+                    PieceConstants.BLACK,
+                    true));
             dispose();
         });
 
