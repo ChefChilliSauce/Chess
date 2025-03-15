@@ -9,7 +9,7 @@ import java.util.List;
 
 public class AlternateChessGUI extends JFrame {
     private static final int TILE_SIZE = 80;
-    private static final int BOARD_SIZE = TILE_SIZE * 8;
+    private static final int BOARD_SIZE = TILE_SIZE * 8;  // e.g. 640 for an 8×8 board
 
     // Chess board panel + logic
     private final JPanel chessBoardPanel;
@@ -32,10 +32,9 @@ public class AlternateChessGUI extends JFrame {
     private GameTermination termination = new GameTermination();
 
     // Clock Variables (10+5)
-    private Timer whiteTimer, blackTimer;
-    private Timer idleTimer;
-    private int whiteTime = 600; // 10 min
-    private int blackTime = 600; // 10 min
+    private Timer whiteTimer, blackTimer, idleTimer;
+    private int whiteTime = 600; // 10 min in seconds
+    private int blackTime = 600; // 10 min in seconds
     private boolean isWhiteTurn = true;
     private boolean firstMoveDone = false;
     private JLabel whiteTimeLabel, blackTimeLabel;
@@ -44,14 +43,18 @@ public class AlternateChessGUI extends JFrame {
     private boolean isFullScreen = false;
     private Rectangle windowedBounds = null;
 
-    // (A) Captured Pieces UI
+    // Score fields (the score values are kept internally but are not displayed as a difference)
+    private String blackPlayerName;
+    private String whitePlayerName;
     private JLabel blackPlayerLabel, whitePlayerLabel;
-    private JPanel blackCapturedPanel, whiteCapturedPanel; // flow layout for icons
-    private JLabel blackScoreLabel, whiteScoreLabel;       // show the numeric score
-
-    // Track captured pieces + scores
     private int blackScore = 0;
     private int whiteScore = 0;
+
+    // Clock panel position & size (hard-coded for simplicity)
+    private static final int CLOCK_X = 1240;
+    private static final int CLOCK_Y = 335;
+    private static final int CLOCK_W = 150;
+    private static final int CLOCK_H = 200;
 
     public AlternateChessGUI(Board board,
                              String playerOneName,
@@ -61,18 +64,32 @@ public class AlternateChessGUI extends JFrame {
                              boolean boardFlipEnabled) {
         this.board = board;
 
+        // Store player names for use in the labels
+        this.whitePlayerName = playerOneName;
+        this.blackPlayerName = playerTwoName;
+
         // Basic window setup
-        getContentPane().setBackground(Color.decode("#1f1f1f"));
+        getContentPane().setBackground(Color.decode("#123524"));
         setTitle("Chess: " + playerOneName + " vs " + playerTwoName);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setExtendedState(JFrame.MAXIMIZED_BOTH);
         setResizable(false);
         setLayout(null);
 
+        // Optionally set a window icon from /assets/chess_logo.png
+        java.net.URL logoURL = getClass().getResource("/assets/chess_logo.png");
+        if (logoURL != null) {
+            ImageIcon logoIcon = new ImageIcon(logoURL);
+            setIconImage(logoIcon.getImage());
+        } else {
+            System.err.println("Chess logo not found at /assets/chess_logo.png");
+        }
+        setVisible(true);
+
         // 1) Clock Panel
         JPanel clockPanel = new JPanel(new GridBagLayout());
-        clockPanel.setBackground(Color.decode("#1f1f1f"));
-        clockPanel.setBounds(BOARD_SIZE + 600, 335, 150, 200);
+        clockPanel.setBackground(Color.decode("#123524"));
+        clockPanel.setBounds(CLOCK_X, CLOCK_Y, CLOCK_W, CLOCK_H);
 
         whiteTimeLabel = new JLabel("10:00", SwingConstants.CENTER);
         blackTimeLabel = new JLabel("10:00", SwingConstants.CENTER);
@@ -96,7 +113,7 @@ public class AlternateChessGUI extends JFrame {
 
         getContentPane().add(clockPanel);
 
-        // 2) Chess Board Panel
+        // 2) Chess Board Panel (centered)
         chessBoardPanel = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -106,28 +123,47 @@ public class AlternateChessGUI extends JFrame {
             }
         };
         chessBoardPanel.setLayout(null);
-        chessBoardPanel.setBackground(Color.decode("#1f1f1f"));
-        addComponentListener(new java.awt.event.ComponentAdapter() {
-            @Override
-            public void componentResized(java.awt.event.ComponentEvent evt) {
-                repositionComponents();
-            }
-        });
+        chessBoardPanel.setBackground(Color.decode("#123524"));
+
+        // Center the board once at startup
         int centerX = (getWidth() - BOARD_SIZE) / 2;
         int centerY = (getHeight() - BOARD_SIZE) / 2;
         chessBoardPanel.setBounds(centerX, centerY, BOARD_SIZE, BOARD_SIZE);
         getContentPane().add(chessBoardPanel);
 
-        // 3) Buttons
+        // Re-center the board if the window is resized
+        addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent evt) {
+                repositionChessBoard();
+            }
+        });
+
+        // 3) Four Buttons on the left
         addButtons();
 
-        // 4) Mouse Listeners
+        // 4) Player labels – display only the names (no score difference)
+        blackPlayerLabel = new JLabel(blackPlayerName, SwingConstants.CENTER);
+        blackPlayerLabel.setFont(new Font("Arial", Font.BOLD, 20));
+        blackPlayerLabel.setForeground(Color.WHITE);
+        // Position just above the clock
+        blackPlayerLabel.setBounds(CLOCK_X, CLOCK_Y - 35, CLOCK_W, 30);
+        getContentPane().add(blackPlayerLabel);
+
+        whitePlayerLabel = new JLabel(whitePlayerName, SwingConstants.CENTER);
+        whitePlayerLabel.setFont(new Font("Arial", Font.BOLD, 20));
+        whitePlayerLabel.setForeground(Color.WHITE);
+        // Position just below the clock
+        whitePlayerLabel.setBounds(CLOCK_X, CLOCK_Y + CLOCK_H + 5, CLOCK_W, 30);
+        getContentPane().add(whitePlayerLabel);
+
+        // 5) Mouse Listeners for Piece Dragging
         chessBoardPanel.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
                 int file = e.getX() / TILE_SIZE;
                 int rank = e.getY() / TILE_SIZE;
-                selectedPieceIndex = (7 - rank) * 8 + file;
+                selectedPieceIndex = (7 - rank) * 8 + file; // White always at bottom
 
                 if (board.getPiece(selectedPieceIndex) != PieceConstants.NONE) {
                     dragging = true;
@@ -142,21 +178,23 @@ public class AlternateChessGUI extends JFrame {
 
             @Override
             public void mouseReleased(MouseEvent e) {
-                if (!dragging || selectedPieceIndex == -1) return;
+                if (!dragging || selectedPieceIndex == -1)
+                    return;
 
                 int file = e.getX() / TILE_SIZE;
                 int rank = e.getY() / TILE_SIZE;
                 int targetIndex = (7 - rank) * 8 + file;
 
                 int piece = board.getPiece(selectedPieceIndex);
-                if (piece == PieceConstants.NONE) return;
+                if (piece == PieceConstants.NONE)
+                    return;
 
                 boolean moveSuccessful = board.makeMove(selectedPieceIndex, targetIndex, AlternateChessGUI.this);
                 if (moveSuccessful) {
                     fromIndex = selectedPieceIndex;
                     toIndex = targetIndex;
 
-                    // Pawn promotion
+                    // Pawn promotion check
                     if ((piece & 7) == PieceConstants.PAWN) {
                         boolean isWhite = ((piece & PieceConstants.WHITE) != 0);
                         int lastRank = isWhite ? 7 : 0;
@@ -164,9 +202,6 @@ public class AlternateChessGUI extends JFrame {
                             showPromotionPopup(targetIndex, isWhite);
                         }
                     }
-
-                    // Force white at bottom
-                    isWhiteAtBottom = true;
 
                     // Clock logic
                     if (!firstMoveDone) {
@@ -176,7 +211,7 @@ public class AlternateChessGUI extends JFrame {
                     }
                     if (isWhiteTurn) {
                         whiteTimer.stop();
-                        whiteTime += 5;
+                        whiteTime += 5;  // increment
                         blackTimer.start();
                     } else {
                         blackTimer.stop();
@@ -206,7 +241,7 @@ public class AlternateChessGUI extends JFrame {
             }
         });
 
-        // 5) Timers
+        // 6) Timers Setup
         whiteTimer = new Timer(1000, e -> {
             if (whiteTime > 0) {
                 whiteTime--;
@@ -229,128 +264,30 @@ public class AlternateChessGUI extends JFrame {
         idleTimer.start();
         updateClockDisplay();
 
-        // (A) Player/Captured UI
-        blackPlayerLabel = new JLabel(playerTwoName, SwingConstants.CENTER);
-        blackPlayerLabel.setFont(new Font("Arial", Font.BOLD, 20));
-        blackPlayerLabel.setForeground(Color.WHITE);
-        getContentPane().add(blackPlayerLabel);
-
-        blackCapturedPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 2, 2));
-        blackCapturedPanel.setOpaque(false);
-        getContentPane().add(blackCapturedPanel);
-
-        blackScoreLabel = new JLabel("Score: 0", SwingConstants.CENTER);
-        blackScoreLabel.setFont(new Font("Arial", Font.PLAIN, 16));
-        blackScoreLabel.setForeground(Color.GRAY);
-        getContentPane().add(blackScoreLabel);
-
-        whiteCapturedPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 2, 2));
-        whiteCapturedPanel.setOpaque(false);
-        getContentPane().add(whiteCapturedPanel);
-
-        whiteScoreLabel = new JLabel("Score: 0", SwingConstants.CENTER);
-        whiteScoreLabel.setFont(new Font("Arial", Font.PLAIN, 16));
-        whiteScoreLabel.setForeground(Color.GRAY);
-        getContentPane().add(whiteScoreLabel);
-
-        whitePlayerLabel = new JLabel(playerOneName, SwingConstants.CENTER);
-        whitePlayerLabel.setFont(new Font("Arial", Font.BOLD, 20));
-        whitePlayerLabel.setForeground(Color.WHITE);
-        getContentPane().add(whitePlayerLabel);
-
-        repositionComponents();
+        // Show the frame fully
         setVisible(true);
     }
 
-    // (B) Called by Board when a piece is captured
-    public void onPieceCaptured(int capturedPiece, boolean capturedByWhite) {
-        // Increase the capturing side's score
-        int value = getPieceValue(capturedPiece);
-        if (capturedByWhite) {
-            whiteScore += value;
-            // Add small icon to whiteCapturedPanel
-            whiteCapturedPanel.add(new JLabel(getCapturedIcon(capturedPiece)));
-        } else {
-            blackScore += value;
-            blackCapturedPanel.add(new JLabel(getCapturedIcon(capturedPiece)));
-        }
-        // Update the score labels
-        blackScoreLabel.setText("Score: " + blackScore);
-        whiteScoreLabel.setText("Score: " + whiteScore);
-
-        // Refresh UI
-        whiteCapturedPanel.revalidate();
-        whiteCapturedPanel.repaint();
-        blackCapturedPanel.revalidate();
-        blackCapturedPanel.repaint();
-    }
-
-    private int getPieceValue(int piece) {
-        switch (piece & 7) {
-            case PieceConstants.QUEEN:  return 9;
-            case PieceConstants.ROOK:   return 5;
-            case PieceConstants.BISHOP: return 3;
-            case PieceConstants.KNIGHT: return 3;
-            case PieceConstants.PAWN:   return 1;
-            default:                    return 0;
-        }
-    }
-
-    // Returns a small icon (32x32) for the captured piece
-    private Icon getCapturedIcon(int piece) {
-        // Example naming: /assets/cbbp.png or /assets/cbq.png etc.
-        // Let's pick a naming scheme: c + color + piece letter, e.g. cwbp, cbbp, etc.
-        // color = (piece & PieceConstants.WHITE) != 0 ? 'w' : 'b'
-        // letter = 'p', 'r', 'n', 'b', 'q', 'k'
-        char colorChar = ((piece & PieceConstants.WHITE) != 0) ? 'w' : 'b';
-        char letter;
-        switch (piece & 7) {
-            case PieceConstants.PAWN:   letter = 'p'; break;
-            case PieceConstants.ROOK:   letter = 'r'; break;
-            case PieceConstants.KNIGHT: letter = 'n'; break;
-            case PieceConstants.BISHOP: letter = 'b'; break;
-            case PieceConstants.QUEEN:  letter = 'q'; break;
-            case PieceConstants.KING:   letter = 'k'; break;
-            default:                    letter = '?'; break;
-        }
-        String imageName = "/assets/c" + colorChar + letter + ".png"; // e.g. "/assets/cwp.png"
-        java.net.URL imgURL = getClass().getResource(imageName);
-        if (imgURL == null) {
-            // fallback
-            return new ImageIcon(); // empty icon
-        }
-        ImageIcon icon = new ImageIcon(imgURL);
-        // scale down to 32x32
-        Image scaled = icon.getImage().getScaledInstance(32, 32, Image.SCALE_SMOOTH);
-        return new ImageIcon(scaled);
-    }
-
-    // Re-center the board and label/panels
-    private void repositionComponents() {
-        int centerX = (getWidth() - BOARD_SIZE) / 2;
-        int centerY = (getHeight() - BOARD_SIZE) / 2;
-
+    // Only re-center the chessboard if the window is resized
+    private void repositionChessBoard() {
+        int frameWidth = getWidth();
+        int frameHeight = getHeight();
+        int centerX = (frameWidth - BOARD_SIZE) / 2;
+        int centerY = (frameHeight - BOARD_SIZE) / 2;
         chessBoardPanel.setBounds(centerX, centerY, BOARD_SIZE, BOARD_SIZE);
-
-        // Place black (top) stuff
-        blackPlayerLabel.setBounds(centerX - 300  , centerY - 69, BOARD_SIZE, 25);
-        blackCapturedPanel.setBounds(centerX - 300, centerY - 40, BOARD_SIZE, 30);
-        blackScoreLabel.setBounds(centerX, centerY - 10, BOARD_SIZE, 20);
-
-        // Place white (bottom) stuff
-        whitePlayerLabel.setBounds(centerX - 298  , centerY + BOARD_SIZE + 5, BOARD_SIZE, 25);
-        whiteCapturedPanel.setBounds(centerX - 298 , centerY + BOARD_SIZE, BOARD_SIZE, 30);
-        whiteScoreLabel.setBounds(centerX, centerY + BOARD_SIZE + 30, BOARD_SIZE, 20);
-
-
         repaintBoard();
     }
 
+    /**
+     * Repaint the chessBoardPanel on the Swing event thread.
+     */
     public void repaintBoard() {
         SwingUtilities.invokeLater(chessBoardPanel::repaint);
     }
 
-    // Promotion Popup
+    /**
+     * Show the promotion popup for a pawn that reaches the last rank.
+     */
     private void showPromotionPopup(int index, boolean isWhite) {
         JDialog promotionDialog = new JDialog(this, "Choose Promotion Piece", true);
         promotionDialog.setLayout(new GridLayout(1, 4));
@@ -373,8 +310,8 @@ public class AlternateChessGUI extends JFrame {
 
             JButton button = new JButton(resizedIcon);
             button.setPreferredSize(new Dimension(80, 80));
-
             final int selectedPiece = pieceTypes[i] | (isWhite ? PieceConstants.WHITE : PieceConstants.BLACK);
+
             button.addActionListener(e -> {
                 board.setPiece(index, selectedPiece);
                 promotionDialog.dispose();
@@ -390,7 +327,9 @@ public class AlternateChessGUI extends JFrame {
         promotionDialog.setVisible(true);
     }
 
-    // Draw the Board
+    /**
+     * Draw the chessboard squares + highlights
+     */
     private void drawBoard(Graphics g) {
         Graphics2D g2d = (Graphics2D) g;
         for (int screenRow = 0; screenRow < 8; screenRow++) {
@@ -400,9 +339,9 @@ public class AlternateChessGUI extends JFrame {
 
                 // Checker pattern
                 if ((screenRow + screenCol) % 2 == 0) {
-                    g2d.setColor(Color.decode("#e0c8b0")); // Light
+                    g2d.setColor(Color.decode("#e0c8b0")); // Light square
                 } else {
-                    g2d.setColor(Color.decode("#a16f5a")); // Dark
+                    g2d.setColor(Color.decode("#a16f5a")); // Dark square
                 }
                 g2d.fillRect(x, y, TILE_SIZE, TILE_SIZE);
 
@@ -411,8 +350,7 @@ public class AlternateChessGUI extends JFrame {
                 int index = boardRow * 8 + boardCol;
 
                 // Last move highlight
-                boolean isLastMove = (index == fromIndex || index == toIndex);
-                if (isLastMove) {
+                if (index == fromIndex || index == toIndex) {
                     g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f));
                     g2d.setColor(Color.YELLOW);
                     g2d.fillRect(x, y, TILE_SIZE, TILE_SIZE);
@@ -430,15 +368,21 @@ public class AlternateChessGUI extends JFrame {
         }
     }
 
-    // Draw the Pieces
+    /**
+     * Draw the chess pieces. If one is being dragged, draw it under the mouse
+     * and skip drawing it in its original square.
+     */
     private void drawPieces(Graphics g) {
         Graphics2D g2d = (Graphics2D) g;
 
-        // Non-dragged pieces
+        // 1) Draw all non-dragged pieces
         for (int index = 0; index < 64; index++) {
-            if (dragging && index == selectedPieceIndex) continue;
+            if (dragging && index == selectedPieceIndex)
+                continue;
+
             int piece = board.getPiece(index);
-            if (piece == PieceConstants.NONE) continue;
+            if (piece == PieceConstants.NONE)
+                continue;
 
             int row = index / 8;
             int col = index % 8;
@@ -451,20 +395,38 @@ public class AlternateChessGUI extends JFrame {
             }
         }
 
-        // The dragged piece
+        // 2) If dragging, draw that piece at the mouse location
         if (dragging && selectedPieceIndex != -1) {
             int piece = board.getPiece(selectedPieceIndex);
             if (piece != PieceConstants.NONE) {
                 Image pieceImage = PieceConstants.getPieceImage(piece);
                 if (pieceImage != null) {
                     int offset = TILE_SIZE / 2;
-                    g2d.drawImage(pieceImage, draggedX - offset, draggedY - offset, TILE_SIZE, TILE_SIZE, this);
+                    g2d.drawImage(pieceImage, draggedX - offset, draggedY - offset,
+                            TILE_SIZE, TILE_SIZE, this);
                 }
             }
         }
     }
 
-    // Update clock labels
+    /**
+     * Return piece's value for scoring if you want to increment blackScore/whiteScore
+     * from some other logic. Then call updateScoreDisplay() if needed.
+     */
+    private int getPieceValue(int piece) {
+        switch (piece & 7) {
+            case PieceConstants.QUEEN:  return 9;
+            case PieceConstants.ROOK:   return 5;
+            case PieceConstants.BISHOP: return 3;
+            case PieceConstants.KNIGHT: return 3;
+            case PieceConstants.PAWN:   return 1;
+            default:                    return 0;
+        }
+    }
+
+    /**
+     * (Currently not used) Update the clock labels.
+     */
     private void updateClockDisplay() {
         whiteTimeLabel.setText(formatTime(whiteTime));
         blackTimeLabel.setText(formatTime(blackTime));
@@ -476,7 +438,9 @@ public class AlternateChessGUI extends JFrame {
         return String.format("%02d:%02d", minutes, seconds);
     }
 
-    // Fullscreen
+    /**
+     * Toggle Fullscreen on/off
+     */
     private void toggleFullScreen() {
         GraphicsDevice device = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice();
         if (!isFullScreen) {
@@ -499,47 +463,18 @@ public class AlternateChessGUI extends JFrame {
         }
     }
 
-    // Buttons (resign, etc.)
+    /**
+     * Create the UI buttons (resign, fullscreen, plus 2 placeholders)
+     */
     private void addButtons() {
         java.net.URL maximize = getClass().getResource("/assets/maximize.png");
         java.net.URL resign = getClass().getResource("/assets/resign.png");
+        java.net.URL minimize = getClass().getResource("/assets/minimize.png");
+        java.net.URL draw = getClass().getResource("/assets/draw.png");
+        java.net.URL engine = getClass().getResource("/assets/engine.png");
 
-        // Example
-        JButton button1 = new JButton("Button 1");
-        button1.setBounds(115, 375, 80, 40);
-        button1.setBackground(Color.decode("#353535"));
-        button1.setForeground(Color.WHITE);
-        button1.setOpaque(true);
-        button1.setBorderPainted(false);
-        getContentPane().add(button1);
 
-        JButton button2 = new JButton("Button 2");
-        button2.setBounds(200, 375, 80, 40);
-        button2.setBackground(Color.decode("#353535"));
-        button2.setForeground(Color.WHITE);
-        button2.setOpaque(true);
-        button2.setBorderPainted(false);
-        getContentPane().add(button2);
-
-        // Fullscreen
-        if (maximize != null) {
-            ImageIcon icon = new ImageIcon(maximize);
-            Image scaled = icon.getImage().getScaledInstance(80, 40, Image.SCALE_AREA_AVERAGING);
-            ImageIcon scaledIcon = new ImageIcon(scaled);
-
-            JButton maxMinButton = new JButton(scaledIcon);
-            maxMinButton.setToolTipText("Fullscreen");
-            maxMinButton.setBorderPainted(false);
-            maxMinButton.setOpaque(true);
-            maxMinButton.setBackground(Color.decode("#353535"));
-            maxMinButton.setBounds(115, 425, 80, 40);
-            maxMinButton.addActionListener(e -> toggleFullScreen());
-            getContentPane().add(maxMinButton);
-        } else {
-            System.err.println("maximize.png icon not found!");
-        }
-
-        // Resign
+        // Resign button
         if (resign != null) {
             ImageIcon icon = new ImageIcon(resign);
             Image scaled = icon.getImage().getScaledInstance(80, 40, Image.SCALE_AREA_AVERAGING);
@@ -547,43 +482,200 @@ public class AlternateChessGUI extends JFrame {
 
             JButton resignButton = new JButton(scaledIcon);
             resignButton.setToolTipText("Resign");
-            resignButton.setBorderPainted(false);
-            resignButton.setOpaque(true);
-            resignButton.setBackground(Color.decode("#353535"));
-            resignButton.setBounds(200, 425, 80, 40);
+            styleButton(resignButton);
+            resignButton.setBounds(100, 390, 80, 40);
             resignButton.addActionListener(e -> handleResignation());
             getContentPane().add(resignButton);
         } else {
             System.err.println("resign.png icon not found!");
         }
+
+        // Draw button
+        if (draw != null) {
+            ImageIcon icon = new ImageIcon(draw);
+            Image scaled = icon.getImage().getScaledInstance(80, 40, Image.SCALE_AREA_AVERAGING);
+            ImageIcon scaledIcon = new ImageIcon(scaled);
+            JButton drawButton = new JButton(scaledIcon);
+            drawButton.setToolTipText("Draw");
+            styleButton(drawButton);
+            drawButton.setBounds(200, 390, 80, 40);
+            drawButton.addActionListener(e -> handleDraw());
+            getContentPane().add(drawButton);
+        } else {
+            System.err.println("draw.png icon not found!");
+        }
+
+        // Fullscreen button
+        if (maximize != null) {
+            ImageIcon icon = new ImageIcon(maximize);
+            Image scaled = icon.getImage().getScaledInstance(80, 40, Image.SCALE_AREA_AVERAGING);
+            ImageIcon scaledIcon = new ImageIcon(scaled);
+
+            JButton maxMinButton = new JButton(scaledIcon);
+            maxMinButton.setToolTipText("Fullscreen");
+            styleButton(maxMinButton);
+            maxMinButton.setBounds(100, 450, 80, 40);
+            maxMinButton.addActionListener(e -> toggleFullScreen());
+            getContentPane().add(maxMinButton);
+        } else {
+            System.err.println("maximize.png icon not found!");
+        }
+
+        // In your addButtons() method or wherever you create the "Engine" button:
+        if (engine != null) {
+            ImageIcon icon = new ImageIcon(engine);
+            Image scaled = icon.getImage().getScaledInstance(80, 40, Image.SCALE_AREA_AVERAGING);
+            ImageIcon scaledIcon = new ImageIcon(scaled);
+            JButton engineButton = new JButton(scaledIcon);
+            engineButton.setToolTipText("Engine");
+            styleButton(engineButton);
+            engineButton.setBounds(200, 450, 80, 40);
+
+            // On click, show a simple "coming soon" popup
+            engineButton.addActionListener(e -> {
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Engine feature will be available soon",
+                        "Engine Feature",
+                        JOptionPane.INFORMATION_MESSAGE
+                );
+            });
+
+            getContentPane().add(engineButton);
+        } else {
+            System.err.println("engine.png icon not found!");
+        }
+
+
     }
 
+    private void styleButton(JButton btn) {
+        btn.setBorderPainted(false);
+        btn.setOpaque(true);
+        btn.setBackground(Color.decode("#353535"));
+        btn.setForeground(Color.WHITE);
+    }
+
+    private void handleDraw() {
+        // Mark the game as a draw in your GameTermination instance
+        termination.setDrawAgreed(true);
+
+        // Check the game state (it should come back as a DRAW).
+        GameTermination.GameResult result = termination.checkGameState(board);
+
+        // Stop the clocks if running
+        if (whiteTimer != null) whiteTimer.stop();
+        if (blackTimer != null) blackTimer.stop();
+
+        // Construct a message
+        String message = "The game is a draw!\nThank you for playing!";
+
+        // We'll present two buttons: "Rematch" and "Exit"
+        String[] options = { "Rematch", "Exit" };
+        int choice = JOptionPane.showOptionDialog(
+                this,
+                message,        // main text
+                "Game Over",    // dialog title
+                JOptionPane.YES_NO_OPTION,          // two options
+                JOptionPane.INFORMATION_MESSAGE,    // icon type
+                null,                                // no custom icon
+                options,                             // the button texts
+                options[0]                          // default button is "Rematch"
+        );
+
+        if (choice == JOptionPane.YES_OPTION) {
+            // User clicked "Rematch"
+            startNewGame();
+        } else {
+            // User clicked "Exit" or closed the dialog => exit program
+            System.exit(0);
+        }
+    }
+
+
     private void handleResignation() {
+        // Mark the current side as resigned.
         if (isWhiteTurn) {
             termination.setWhiteResigned(true);
         } else {
             termination.setBlackResigned(true);
         }
+
+        // Check the game state (will reflect the resignation).
         GameTermination.GameResult result = termination.checkGameState(board);
 
-        whiteTimer.stop();
-        blackTimer.stop();
+        // Stop the clocks if they are running.
+        if (whiteTimer != null) whiteTimer.stop();
+        if (blackTimer != null) blackTimer.stop();
 
-        JOptionPane.showMessageDialog(
-                this,
-                "Game Over: " + result.toString() + "\nThank you for playing!",
-                "Game Over",
-                JOptionPane.INFORMATION_MESSAGE
+        // Figure out who resigned and who the winner is.
+        // isWhiteTurn => White resigned => Black wins, etc.
+        String resigningPlayer = isWhiteTurn ? whitePlayerName : blackPlayerName;
+        String winningPlayer   = isWhiteTurn ? blackPlayerName : whitePlayerName;
+
+        // Construct a message that includes who resigned and who wins.
+        // Also add "Thank you for playing!"
+        String message = String.format(
+                "%s resigned, %s wins!\nThank you for playing!",
+                resigningPlayer, winningPlayer
         );
+
+        // We'll present two buttons: "Rematch" and "Exit".
+        // If the user closes the dialog or clicks "Exit", we'll exit the program.
+        String[] options = { "Rematch", "Exit" };
+        int choice = JOptionPane.showOptionDialog(
+                this,
+                message,        // main text
+                "Game Over",    // dialog title
+                JOptionPane.YES_NO_OPTION,          // two options
+                JOptionPane.INFORMATION_MESSAGE,    // icon type
+                null,                                // no custom icon
+                options,                             // the button texts
+                options[0]                          // default button is "Rematch"
+        );
+
+        if (choice == JOptionPane.YES_OPTION) {
+            // User clicked "Rematch"
+            startNewGame();
+        } else {
+            // User clicked "Exit" or closed the dialog => exit program
+            System.exit(0);
+        }
     }
 
-    // Main
+    /**
+     * Helper method to start a new, fresh game with the same names/colors.
+     * This can be done by:
+     *  - disposing the current window
+     *  - creating a new Board
+     *  - re-launching AlternateChessGUI with the same parameters
+     */
+    private void startNewGame() {
+        // Close current window
+        dispose();
+
+        // Create a fresh Board
+        Board newBoard = new Board();
+
+        // Re-launch the GUI with the same player info and colors
+        SwingUtilities.invokeLater(() -> new AlternateChessGUI(
+                newBoard,
+                whitePlayerName,
+                blackPlayerName,
+                PieceConstants.WHITE,  // or reuse the old color assignments
+                PieceConstants.BLACK,
+                true                   // or reuse boardFlipEnabled
+        ));
+    }
+
+
+    // Main method for local testing
     public static void main(String[] args) {
         Board board = new Board();
         SwingUtilities.invokeLater(() -> new AlternateChessGUI(
                 board,
-                "Alice",
-                "Bob",
+                "Aditi",
+                "Abhinav",
                 PieceConstants.WHITE,
                 PieceConstants.BLACK,
                 true

@@ -313,10 +313,6 @@ public class Board {
             lastCapturedPiece = targetPiece;
         }
 
-        // Invoke the capture event if a piece was captured.
-        if (isCapture && lastCapturedPiece != PieceConstants.NONE) {
-            gui.onPieceCaptured(lastCapturedPiece, isWhite);
-        }
 
         // Mark king/rook as having moved if applicable
         if ((piece & 7) == PieceConstants.KING) {
