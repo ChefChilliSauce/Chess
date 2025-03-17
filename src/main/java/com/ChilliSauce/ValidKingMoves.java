@@ -106,7 +106,7 @@ public class ValidKingMoves {
      * Returns the squares the king "attacks" (for check detection), ignoring occupancy & color.
      * (No castling here, because castling is not an attack.)
      */
-    public static List<Integer> getAttackSquares(Board board, int index, boolean isWhite) {
+    public static List<Integer> getAttackSquares(Board ignoredBoard, int index, boolean ignoredIsWhite) {
         List<Integer> attacks = new ArrayList<>();
         int rank = index / 8;
         int file = index % 8;

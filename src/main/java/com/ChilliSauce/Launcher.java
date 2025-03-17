@@ -34,7 +34,7 @@ public class Launcher extends JFrame {
         add(joinGameButton, gbc);
 
         // When "Pass n Play" is clicked, ask for the names and start AlternateChessGUI.
-        passNPlayButton.addActionListener((ActionEvent e) -> {
+        passNPlayButton.addActionListener((ActionEvent _) -> {
             String whiteName = JOptionPane.showInputDialog(this, "Enter White's name:");
             if (whiteName == null || whiteName.trim().isEmpty()) {
                 JOptionPane.showMessageDialog(this, "White's name is required.", "Error", JOptionPane.ERROR_MESSAGE);
@@ -49,21 +49,18 @@ public class Launcher extends JFrame {
             SwingUtilities.invokeLater(() -> new AlternateChessGUI(
                     new Board(),
                     whiteName.trim(),
-                    blackName.trim(),
-                    PieceConstants.WHITE,
-                    PieceConstants.BLACK,
-                    true));
+                    blackName.trim()));
             dispose();
         });
 
         // Host and Join (stubbed for now)
-        hostButton.addActionListener(e -> {
+        hostButton.addActionListener(_ -> {
             String hostCode = String.valueOf(100000 + (int)(Math.random()*900000));
             SwingUtilities.invokeLater(() -> new HostGameFrame(hostCode));
             dispose();
         });
 
-        joinGameButton.addActionListener(e -> {
+        joinGameButton.addActionListener(_ -> {
             String code = JOptionPane.showInputDialog(this, "Enter Host Code:");
             if (code != null && !code.trim().isEmpty()) {
                 SwingUtilities.invokeLater(() -> new JoinGameFrame(code.trim()));

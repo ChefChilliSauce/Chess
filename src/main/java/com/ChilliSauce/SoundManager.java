@@ -3,8 +3,12 @@ package com.ChilliSauce;
 import javax.sound.sampled.*;
 import java.io.File;
 import java.io.IOException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class SoundManager {
+
+    private static final Logger LOGGER = Logger.getLogger(SoundManager.class.getName());
 
     private static void playSound(String filePath) {
         try {
@@ -14,7 +18,7 @@ public class SoundManager {
             clip.open(audioStream);
             clip.start();
         } catch (UnsupportedAudioFileException | IOException | LineUnavailableException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Error playing sound: " + filePath, e);
         }
     }
 
@@ -25,9 +29,11 @@ public class SoundManager {
     public static void playCaptureSound() {
         playSound("src/main/resources/sounds/capture.wav");
     }
+
     public static void playCastlingSound() {
         playSound("src/main/resources/sounds/castle.wav");
     }
+
     public static void playPromotionSound() {
         playSound("src/main/resources/sounds/promote.wav");
     }

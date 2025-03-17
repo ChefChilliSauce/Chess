@@ -65,7 +65,7 @@ public class ValidPawnMoves {
     }
 
     // New method: returns the squares a pawn attacks (diagonally ahead) regardless of occupancy.
-    public static List<Integer> getAttackSquares(Board board, int index, boolean isWhite) {
+    public static List<Integer> getAttackSquares(Board ignoredBoard, int index, boolean isWhite) {
         List<Integer> attackSquares = new ArrayList<>();
         int[] captureOffsets = {7, 9};
         for (int offset : captureOffsets) {

@@ -101,21 +101,8 @@ public class Board {
         return isWhiteTurn;
     }
 
-    public Integer getLastMoveFrom() {
-        return lastMoveFrom;
-    }
-
-    public Integer getLastMoveTo() {
-        return lastMoveTo;
-    }
-
     public Integer getEnPassantTarget() {
         return enPassantTarget;
-    }
-
-    // Getter for the last captured piece so the GUI can check if a capture occurred.
-    public int getLastMoveCapturedPiece() {
-        return lastCapturedPiece;
     }
 
     // ---------------------------------------------------------
@@ -322,11 +309,11 @@ public class Board {
             if (isWhite) {
                 whiteKingMoved = true;
                 if (rookFrom == 7) whiteKingsideRookMoved = true;
-                else if (rookFrom == 0) whiteQueensideRookMoved = true;
+                else whiteQueensideRookMoved = true;
             } else {
                 blackKingMoved = true;
                 if (rookFrom == 63) blackKingsideRookMoved = true;
-                else if (rookFrom == 56) blackQueensideRookMoved = true;
+                else blackQueensideRookMoved = true;
             }
             SoundManager.playCastlingSound();
             gui.repaintBoard();
@@ -338,10 +325,7 @@ public class Board {
         // Check for en passant
         // ----------------------
         Integer epTarget = getEnPassantTarget();
-        boolean isEnPassant = false;
-        if ((piece & 7) == PieceConstants.PAWN && epTarget != null && epTarget == toIndex) {
-            isEnPassant = true;
-        }
+        boolean isEnPassant = (piece & 7) == PieceConstants.PAWN && epTarget != null && epTarget == toIndex;
 
         // Execute normal move
         setPiece(toIndex, piece);
@@ -350,8 +334,7 @@ public class Board {
         // Handle en passant capture
         if (isEnPassant) {
             int capturedPawnIndex = isWhite ? (toIndex - 8) : (toIndex + 8);
-            int epPawn = getPiece(capturedPawnIndex);
-            lastCapturedPiece = epPawn;
+            lastCapturedPiece = getPiece(capturedPawnIndex);
             setPiece(capturedPawnIndex, PieceConstants.NONE);
             isCapture = true;
         }
@@ -379,6 +362,7 @@ public class Board {
         int promotionRank = isWhite ? 7 : 0;
         boolean isPromotion = ((piece & 7) == PieceConstants.PAWN) && ((toIndex / 8) == promotionRank);
         if (isPromotion) {
+            System.out.println("Promotion");
             // Do nothing here to let GUI handle promotion popup
         } else if (isCapture) {
             SoundManager.playCaptureSound();

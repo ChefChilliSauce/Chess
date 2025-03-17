@@ -25,30 +25,26 @@ public class AlternateChessGUI extends JFrame {
     private int fromIndex = -1;
     private int toIndex = -1;
 
-    // Force White at bottom
-    private boolean isWhiteAtBottom = true;
 
     // Game Termination
-    private GameTermination termination = new GameTermination();
+    private final GameTermination termination = new GameTermination();
 
     // Clock Variables (10+5)
-    private Timer whiteTimer, blackTimer, idleTimer;
+    private final Timer whiteTimer, blackTimer, idleTimer;
     private int whiteTime = 600; // 10 min in seconds
     private int blackTime = 600; // 10 min in seconds
     private boolean isWhiteTurn = true;
     private boolean firstMoveDone = false;
-    private JLabel whiteTimeLabel, blackTimeLabel;
+    private final JLabel whiteTimeLabel, blackTimeLabel;
 
     // Fullscreen toggle
     private boolean isFullScreen = false;
     private Rectangle windowedBounds = null;
 
     // Score fields
-    private String blackPlayerName;
-    private String whitePlayerName;
-    private JLabel blackPlayerLabel, whitePlayerLabel;
-    private int blackScore = 0;
-    private int whiteScore = 0;
+    private final String blackPlayerName;
+    private final String whitePlayerName;
+
 
     // Clock panel position & size (hard-coded for simplicity)
     private static final int CLOCK_X = 1240;
@@ -58,10 +54,7 @@ public class AlternateChessGUI extends JFrame {
 
     public AlternateChessGUI(Board board,
                              String playerOneName,
-                             String playerTwoName,
-                             int playerOneColor,
-                             int playerTwoColor,
-                             boolean boardFlipEnabled) {
+                             String playerTwoName) {
         this.board = board;
 
         // Store player names for use in the labels
@@ -145,13 +138,13 @@ public class AlternateChessGUI extends JFrame {
         // 4) Player labels – display only the names.
         // Black player's label is positioned just above the clock,
         // White player's label is positioned just below the clock.
-        blackPlayerLabel = new JLabel(blackPlayerName, SwingConstants.CENTER);
+        JLabel blackPlayerLabel = new JLabel(blackPlayerName, SwingConstants.CENTER);
         blackPlayerLabel.setFont(new Font("Arial", Font.BOLD, 20));
         blackPlayerLabel.setForeground(Color.WHITE);
         blackPlayerLabel.setBounds(CLOCK_X, CLOCK_Y - 35, CLOCK_W, 30);
         getContentPane().add(blackPlayerLabel);
 
-        whitePlayerLabel = new JLabel(whitePlayerName, SwingConstants.CENTER);
+        JLabel whitePlayerLabel = new JLabel(whitePlayerName, SwingConstants.CENTER);
         whitePlayerLabel.setFont(new Font("Arial", Font.BOLD, 20));
         whitePlayerLabel.setForeground(Color.WHITE);
         whitePlayerLabel.setBounds(CLOCK_X, CLOCK_Y + CLOCK_H + 5, CLOCK_W, 30);
@@ -245,7 +238,7 @@ public class AlternateChessGUI extends JFrame {
         });
 
         // 6) Timers Setup
-        whiteTimer = new Timer(1000, e -> {
+        whiteTimer = new Timer(1000, _ -> {
             if (whiteTime > 0) {
                 whiteTime--;
                 updateClockDisplay();
@@ -254,7 +247,7 @@ public class AlternateChessGUI extends JFrame {
                 }
             }
         });
-        blackTimer = new Timer(1000, e -> {
+        blackTimer = new Timer(1000, _ -> {
             if (blackTime > 0) {
                 blackTime--;
                 updateClockDisplay();
@@ -263,7 +256,7 @@ public class AlternateChessGUI extends JFrame {
                 }
             }
         });
-        idleTimer = new Timer(20_000, e -> {
+        idleTimer = new Timer(20_000, _ -> {
             if (!firstMoveDone) {
                 firstMoveDone = true;
                 whiteTimer.start();
@@ -321,7 +314,7 @@ public class AlternateChessGUI extends JFrame {
             button.setPreferredSize(new Dimension(80, 80));
             final int selectedPiece = pieceTypes[i] | (isWhite ? PieceConstants.WHITE : PieceConstants.BLACK);
 
-            button.addActionListener(e -> {
+            button.addActionListener(_ -> {
                 board.setPiece(index, selectedPiece);
                 promotionDialog.dispose();
                 SoundManager.playPromotionSound();
@@ -355,8 +348,7 @@ public class AlternateChessGUI extends JFrame {
                 g2d.fillRect(x, y, TILE_SIZE, TILE_SIZE);
 
                 int boardRow = 7 - screenRow;
-                int boardCol = screenCol;
-                int index = boardRow * 8 + boardCol;
+                int index = boardRow * 8 + screenCol;
 
                 // Last move highlight
                 if (index == fromIndex || index == toIndex) {
@@ -418,20 +410,7 @@ public class AlternateChessGUI extends JFrame {
         }
     }
 
-    /**
-     * Return piece's value for scoring if you want to increment blackScore/whiteScore
-     * from some other logic. Then call updateScoreDisplay() if needed.
-     */
-    private int getPieceValue(int piece) {
-        switch (piece & 7) {
-            case PieceConstants.QUEEN:  return 9;
-            case PieceConstants.ROOK:   return 5;
-            case PieceConstants.BISHOP: return 3;
-            case PieceConstants.KNIGHT: return 3;
-            case PieceConstants.PAWN:   return 1;
-            default:                    return 0;
-        }
-    }
+
 
     /**
      * (Currently not used) Update the clock labels.
@@ -491,7 +470,7 @@ public class AlternateChessGUI extends JFrame {
             resignButton.setToolTipText("Resign");
             styleButton(resignButton);
             resignButton.setBounds(100, 390, 80, 40);
-            resignButton.addActionListener(e -> handleResignation());
+            resignButton.addActionListener(_ -> handleResignation());
             getContentPane().add(resignButton);
         } else {
             System.err.println("resign.png icon not found!");
@@ -506,7 +485,7 @@ public class AlternateChessGUI extends JFrame {
             drawButton.setToolTipText("Draw");
             styleButton(drawButton);
             drawButton.setBounds(200, 390, 80, 40);
-            drawButton.addActionListener(e -> handleDraw());
+            drawButton.addActionListener(_ -> handleDraw());
             getContentPane().add(drawButton);
         } else {
             System.err.println("draw.png icon not found!");
@@ -522,7 +501,7 @@ public class AlternateChessGUI extends JFrame {
             maxMinButton.setToolTipText("Fullscreen");
             styleButton(maxMinButton);
             maxMinButton.setBounds(100, 450, 80, 40);
-            maxMinButton.addActionListener(e -> toggleFullScreen());
+            maxMinButton.addActionListener(_ -> toggleFullScreen());
             getContentPane().add(maxMinButton);
         } else {
             System.err.println("maximize.png icon not found!");
@@ -537,14 +516,12 @@ public class AlternateChessGUI extends JFrame {
             engineButton.setToolTipText("Engine");
             styleButton(engineButton);
             engineButton.setBounds(200, 450, 80, 40);
-            engineButton.addActionListener(e -> {
-                JOptionPane.showMessageDialog(
-                        this,
-                        "Engine feature will be available soon",
-                        "Engine Feature",
-                        JOptionPane.INFORMATION_MESSAGE
-                );
-            });
+            engineButton.addActionListener(_ -> JOptionPane.showMessageDialog(
+                    this,
+                    "Engine feature will be available soon",
+                    "Engine Feature",
+                    JOptionPane.INFORMATION_MESSAGE
+            ));
             getContentPane().add(engineButton);
         } else {
             System.err.println("engine.png icon not found!");
@@ -567,7 +544,7 @@ public class AlternateChessGUI extends JFrame {
         } else {
             termination.setBlackResigned(true);
         }
-        GameTermination.GameResult result = termination.checkGameState(board);
+        termination.checkGameState(board);
 
         // Stop the clocks
         whiteTimer.stop();
@@ -601,7 +578,7 @@ public class AlternateChessGUI extends JFrame {
      */
     private void handleDraw() {
         termination.setDrawAgreed(true);
-        GameTermination.GameResult result = termination.checkGameState(board);
+        termination.checkGameState(board);
 
         whiteTimer.stop();
         blackTimer.stop();
@@ -698,10 +675,7 @@ public class AlternateChessGUI extends JFrame {
         SwingUtilities.invokeLater(() -> new AlternateChessGUI(
                 newBoard,
                 whitePlayerName,
-                blackPlayerName,
-                PieceConstants.WHITE,
-                PieceConstants.BLACK,
-                true
+                blackPlayerName
         ));
     }
 
@@ -753,10 +727,7 @@ public class AlternateChessGUI extends JFrame {
         SwingUtilities.invokeLater(() -> new AlternateChessGUI(
                 board,
                 "Snowy",
-                "Chilli",
-                PieceConstants.WHITE,
-                PieceConstants.BLACK,
-                true
+                "Chilli"
         ));
     }
 }
