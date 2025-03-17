@@ -421,6 +421,28 @@ public class Board {
     }
 
     // ---------------------------------------------------------
+    // 6b) Stalemate detection
+    // ---------------------------------------------------------
+    public boolean isStalemate(boolean isWhite) {
+        // If the king is in check, then it's not stalemate.
+        if (isKingInCheck(isWhite)) return false;
+
+        // For every piece belonging to the side, if at least one legal move exists, it's not stalemate.
+        for (int i = 0; i < 64; i++) {
+            int p = getPiece(i);
+            if (p == PieceConstants.NONE) continue;
+            boolean pieceIsWhite = ((p & PieceConstants.WHITE) != 0);
+            if (pieceIsWhite != isWhite) continue;
+
+            List<Integer> moves = getValidMoves(i);
+            if (!moves.isEmpty()) {
+                return false;
+            }
+        }
+        return true; // Not in check and no legal moves exist.
+    }
+
+    // ---------------------------------------------------------
     // 7) Methods for castling flags (for check detection and GUI)
     // ---------------------------------------------------------
     public boolean hasKingMoved(boolean isWhite) {

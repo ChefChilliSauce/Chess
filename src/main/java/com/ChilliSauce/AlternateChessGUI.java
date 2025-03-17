@@ -195,7 +195,7 @@ public class AlternateChessGUI extends JFrame {
                     toIndex = targetIndex;
 
                     // Pawn promotion check
-                    if ((piece & 7) == PieceConstants.PAWN) {
+                    if ((piece & PieceConstants.PAWN) == PieceConstants.PAWN) {
                         boolean isWhite = ((piece & PieceConstants.WHITE) != 0);
                         int lastRank = isWhite ? 7 : 0;
                         if (targetIndex / 8 == lastRank) {
@@ -221,8 +221,9 @@ public class AlternateChessGUI extends JFrame {
                     isWhiteTurn = !isWhiteTurn;
 
                     repaintBoard();
-                    // Check for checkmate after a successful move.
+                    // Check for checkmate and stalemate after a successful move.
                     checkForCheckmate();
+                    checkForStalemate();
                 }
 
                 validMoves.clear();
@@ -633,7 +634,6 @@ public class AlternateChessGUI extends JFrame {
     private void checkForCheckmate() {
         // isWhiteTurn now indicates the side to move.
         if (board.isCheckmate(isWhiteTurn)) {
-            // The side whose turn it is is checkmated.
             String losingPlayer = isWhiteTurn ? whitePlayerName : blackPlayerName;
             String winningPlayer = isWhiteTurn ? blackPlayerName : whitePlayerName;
             // Stop the clocks
@@ -658,6 +658,51 @@ public class AlternateChessGUI extends JFrame {
                 System.exit(0);
             }
         }
+    }
+
+    /**
+     * Check for stalemate. If the side to move is not in check but has no legal moves,
+     * then it is stalemate (draw).
+     */
+    private void checkForStalemate() {
+        if (board.isStalemate(isWhiteTurn)) {
+            // Stop the clocks
+            whiteTimer.stop();
+            blackTimer.stop();
+            String message = "Stalemate! The game is a draw.\nThank you for playing!";
+            String[] options = { "Rematch", "Exit" };
+            int choice = JOptionPane.showOptionDialog(
+                    this,
+                    message,
+                    "Game Over",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.INFORMATION_MESSAGE,
+                    null,
+                    options,
+                    options[0]
+            );
+            if (choice == JOptionPane.YES_OPTION) {
+                startNewGame();
+            } else {
+                System.exit(0);
+            }
+        }
+    }
+
+    /**
+     * Start a new game (rematch) with the same player names and settings.
+     */
+    private void startNewGame() {
+        dispose();
+        Board newBoard = new Board();
+        SwingUtilities.invokeLater(() -> new AlternateChessGUI(
+                newBoard,
+                whitePlayerName,
+                blackPlayerName,
+                PieceConstants.WHITE,
+                PieceConstants.BLACK,
+                true
+        ));
     }
 
     /**
@@ -698,22 +743,6 @@ public class AlternateChessGUI extends JFrame {
         } else {
             System.exit(0);
         }
-    }
-
-    /**
-     * Start a new game (rematch) with the same player names and settings.
-     */
-    private void startNewGame() {
-        dispose();
-        Board newBoard = new Board();
-        SwingUtilities.invokeLater(() -> new AlternateChessGUI(
-                newBoard,
-                whitePlayerName,
-                blackPlayerName,
-                PieceConstants.WHITE,
-                PieceConstants.BLACK,
-                true
-        ));
     }
 
     /**
